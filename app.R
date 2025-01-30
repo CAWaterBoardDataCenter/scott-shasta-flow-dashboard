@@ -23,22 +23,21 @@ server <- function(input, output, session) {
 
   # Function to update data
   update_data <- function() {
-    data <- map_df(cdec_stations, get_sensor20_flows) %>%
+    new_data <- map_df(cdec_stations, get_sensor20_flows) %>%
       mutate(
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
-        Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S"),
-        LocalTime = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%Y-%m-%d %H:%M:%S")
+        Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
       ) %>%
-      select(StationID, Date, Time, Value, LocalTime) # Reordering columns for clarity
+      select(StationID, Date, Time, Value) # Reordering columns for clarity
 
-    flow_data(data)
+    flow_data(new_data)
     last_update(Sys.time())
   }
 
-  # Refresh data every 15 minutes
+  # Refresh data every 15 minutes safely
   observe({
-    update_data()
     invalidateLater(15 * 60 * 1000, session)
+    update_data()
   })
 
   # Render Data Table
@@ -49,10 +48,9 @@ server <- function(input, output, session) {
 
   # Render Last Updated Time
   output$lastUpdated <- renderText({
-    paste("Last updated:", last_update())
+    paste("Last updated:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
   })
 }
 
 # Run the Shiny App
 shinyApp(ui = ui, server = server)
-

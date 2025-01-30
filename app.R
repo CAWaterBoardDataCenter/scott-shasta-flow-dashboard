@@ -1,39 +1,58 @@
 library(shiny)
-library(bslib)
+library(dplyr)
+library(purrr)
+library(cder)
+library(lubridate)
 
-# UI ----
-ui <- page_fillable(
+# Define the function to fetch flow values
+source("cdec-scrape-function.R")
 
-  titlePanel("My App"),
-  theme = bs_theme(version = 5),
-
-  layout_column_wrap(
-    card(
-      card_header("Inputs"),
-      "No Sidebar"
-    ),
-
-    card(
-      card_header("Single Year Plot"),
-
-      "Main Content"
-
-    )
-  ),
-
-  card(
-    card_header("All Data"),
-    "All Data"
-  )
+# UI Definition
+ui <- fluidPage(
+  titlePanel("Live Flow Data"),
+  dataTableOutput("flowTable"),
+  textOutput("lastUpdated")
 )
 
-
-# SERVER ----
+# Server Logic
 server <- function(input, output, session) {
 
+  # Reactive values to store data and update time
+  flow_data <- reactiveVal(NULL)
+  last_update <- reactiveVal(Sys.time())
 
+  # Function to update data
+  update_data <- function() {
+    data <- map_df(cdec_stations, get_sensor20_flows) %>%
+      mutate(
+        Date = as.Date(DateTime, tz = "America/Los_Angeles"),
+        Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S"),
+        LocalTime = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%Y-%m-%d %H:%M:%S")
+      ) %>%
+      select(StationID, Date, Time, Value, LocalTime) # Reordering columns for clarity
+
+    flow_data(data)
+    last_update(Sys.time())
+  }
+
+  # Refresh data every 15 minutes
+  observe({
+    update_data()
+    invalidateLater(15 * 60 * 1000, session)
+  })
+
+  # Render Data Table
+  output$flowTable <- renderDataTable({
+    req(flow_data())
+    flow_data()
+  })
+
+  # Render Last Updated Time
+  output$lastUpdated <- renderText({
+    paste("Last updated:", last_update())
+  })
 }
 
-
-# APP ----
+# Run the Shiny App
 shinyApp(ui = ui, server = server)
+

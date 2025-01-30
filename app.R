@@ -3,6 +3,7 @@ library(dplyr)
 library(purrr)
 library(cder)
 library(lubridate)
+library(flexdashboard)
 
 # Define the function to fetch flow values
 source("cdec-scrape-function.R")
@@ -10,7 +11,9 @@ source("cdec-scrape-function.R")
 # UI Definition
 ui <- fluidPage(
   titlePanel("Live Flow Data"),
-  dataTableOutput("flowTable"),
+  fluidRow(
+    column(12, uiOutput("gauges"))
+  ),
   textOutput("lastUpdated")
 )
 
@@ -28,7 +31,7 @@ server <- function(input, output, session) {
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
         Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
       ) %>%
-      select(StationID, Date, Time, Value) # Reordering columns for clarity
+      select(StationID, Value) # Only keep relevant columns for gauge display
 
     flow_data(new_data)
     last_update(Sys.time())
@@ -40,10 +43,24 @@ server <- function(input, output, session) {
     update_data()
   })
 
-  # Render Data Table
-  output$flowTable <- renderDataTable({
+  # Render Gauges in a left-aligned row layout
+  output$gauges <- renderUI({
     req(flow_data())
-    flow_data()
+    data <- flow_data()
+
+    gauge_list <- lapply(1:nrow(data), function(i) {
+      div(style = "display: inline-block; width: 200px; margin: 5px;",
+          flexdashboard::gauge(
+            value = data$Value[i],
+            min = 0, max = max(data$Value, na.rm = TRUE) * 1.2,
+            label = paste("Station", data$StationID[i]),
+            gaugeSectors(success = c(0, max(data$Value, na.rm = TRUE) * 0.5),
+                         warning = c(max(data$Value, na.rm = TRUE) * 0.5, max(data$Value, na.rm = TRUE) * 0.8),
+                         danger = c(max(data$Value, na.rm = TRUE) * 0.8, max(data$Value, na.rm = TRUE) * 1.2))
+          ))
+    })
+
+    do.call(div, c(gauge_list, list(style = "text-align: left;")))
   })
 
   # Render Last Updated Time

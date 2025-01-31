@@ -5,8 +5,9 @@ library(lubridate)
 library(purrr)
 
 cdec_stations <- c("SJF", # Scott R. near Fort Jones
+                   "SRY", # Shasta R. at Yreka
                    "SRM", # Shasta R. near Montague
-                   "SRY"  # Shasta R. at Yreka
+                   "SPU"  # Shasta R. at Grenada Pump Plant
                    )
 
 # Define the function to get the latest row of data

@@ -5,8 +5,35 @@ library(cder)
 library(lubridate)
 library(flexdashboard)
 
-# Define the function to fetch flow values
-source("cdec-scrape-function.R")
+# Station IDs to poll.----
+cdec_stations <- c("SFJ", # Scott R. near Fort Jones
+                   "SRY", # Shasta R. at Yreka
+                   "SRM"#, # Shasta R. near Montague
+#                   "SPU"  # Shasta R. at Grenada Pump Plant
+)
+
+# Define the function to get the latest row of data
+get_sensor20_flows <- function(x, sensor = 20) {
+  # Retrieve the data from the CDER API
+  data <- cder::cdec_query(station = x,
+                           sensor = sensor,
+                           start_date = as.Date(now()),
+                           end_date = as.Date(now()))
+
+  # Check if data is retrieved
+  if (nrow(data) == 0) {
+    stop("No data available for the specified station and sensor.")
+  }
+
+  # Filter for the latest row
+  latest_data <- data %>%
+    filter(!is.na(Value)) %>%
+    arrange(desc(DateTime)) %>%
+    slice(1) %>%
+    select(StationID, DateTime, Value)
+
+  return(latest_data)
+}
 
 # UI Definition
 ui <- fluidPage(

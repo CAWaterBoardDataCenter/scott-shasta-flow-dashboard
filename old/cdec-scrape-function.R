@@ -6,18 +6,18 @@ library(purrr)
 
 cdec_stations <- c("SFJ", # Scott R. near Fort Jones
                    "SRY", # Shasta R. at Yreka
-                   "SRM", # Shasta R. near Montague
-                   "SPU"  # Shasta R. at Grenada Pump Plant
-                   )
+                   "SRM")#, # Shasta R. near Montague
+"SPU"  # Shasta R. at Grenada Pump Plant
+#                 )
 
 # Define the function to get the latest row of data
 get_sensor20_flows <- function(x, sensor = 20) {
   # Retrieve the data from the CDER API
-  data <- cdecQuery(stations = cdec_stations,
-                           sensors = 20,
-                           durations = "E",
-                           start_date = as.Date(now()) - 2,
-                           end_date = as.Date(now()))
+  data <- cdecQuery(station = cdec_stations,
+                    sensor = 20,
+                    duration = "E",
+                    start_date = as.Date(now()) - 2,
+                    end_date = as.Date(now()))
 
   # Check if data is retrieved
   if (nrow(data) == 0) {

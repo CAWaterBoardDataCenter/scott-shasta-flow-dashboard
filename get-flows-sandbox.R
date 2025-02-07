@@ -1,40 +1,29 @@
-library(dplyr)
 library(purrr)
 library(cder)
+library(dplyr)
+library(readr)
+library(glue)
+library(stringr)
 library(lubridate)
+library(curl)
 
-cdec_stations <- c("SRM", # Shasta R. near Montague
+source("cdecFlowQuery.R")
+
+cdec_stations <- c("SFJ", # Scott R. near Fort Jones
                    "SRY", # Shasta R. at Yreka
-                   "SJF" # Scott R. near Fort Jones"
-)
-
-sensor <- 20 # Sensor ID
-
-
-
-# Define the function to get the latest row of data
-getCdecFlow <- function(station = station, sensor = sensor) {
-
-  # Retrieve the data from the CDER API
-  x <- cder::cdec_query(station = station, sensor = sensor)
-
-  # Check if data is retrieved
-  if (nrow(x) == 0) {
-    stop("No data available for the specified station and sensor.")
-  }
-
-  # Filter for the latest row
-  x <- x %>%
-    filter(!is.na(Value)) %>%
-    arrange(desc(DateTime)) %>%
-    slice(1)
-
-  return(latest_data)
-}
-
-
-
+                   "SRM")#, # Shasta R. near Montague
+#                   "SPU"  # Shasta R. at Grenada Pump Plant
+sensor <- 20
+duration <- "E"
+start_date <- as.Date(now()) - 1
+end_date <- as.Date(now())
 
 # Call the function
-latest_flow <- getCdecFlow()
-print(latest_flow)
+new_data <- map_df(cdec_stations,
+                   cdecFlowQuery,
+                   sensor = sensor,
+                   duration = duration,
+                   start_date = start_date,
+                   end_date = end_date)
+
+new_data2 <- cdecFlowQuery(station = cdec_stations, sensor = sensor, duration = duration, start_date = start_date, end_date = end_date)

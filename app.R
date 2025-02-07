@@ -1,9 +1,19 @@
 library(shiny)
+library(flexdashboard)
 library(dplyr)
 library(purrr)
 library(cder)
 library(lubridate)
-library(flexdashboard)
+library(readr)
+library(glue)
+library(stringr)
+library(curl)
+
+cdec_stations <- c("SFJ", # Scott R. near Fort Jones
+                   "SRY", # Shasta R. at Yreka
+                   "SRM")#, # Shasta R. near Montague
+#                   "SPU"  # Shasta R. at Grenada Pump Plant
+
 
 # Station IDs to poll.----
 cdec_stations <- c("SFJ", # Scott R. near Fort Jones
@@ -35,6 +45,10 @@ get_sensor20_flows <- function(x, sensor = 20) {
   return(latest_data)
 }
 
+# Define the function to fetch flow values
+source("cdecFlowQuery.R")
+
+
 # UI Definition
 ui <- fluidPage(
   titlePanel("Live Flow Data"),
@@ -53,7 +67,7 @@ server <- function(input, output, session) {
 
   # Function to update data
   update_data <- function() {
-    new_data <- map_df(cdec_stations, get_sensor20_flows) %>%
+    new_data <- map_df(cdec_stations, cdecFlowQuery) %>%
       mutate(
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
         Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")

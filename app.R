@@ -9,11 +9,7 @@ library(glue)
 library(stringr)
 library(curl)
 
-cdec_stations <- c("SFJ", # Scott R. near Fort Jones
-                   "SRY", # Shasta R. at Yreka
-                   "SRM")#, # Shasta R. near Montague
-#                   "SPU"  # Shasta R. at Grenada Pump Plant
-
+sta_info <- read_csv("station-info.csv")[1:3,]
 
 # Define the function to fetch flow values
 source("cdecFlowQuery.R")
@@ -36,12 +32,14 @@ server <- function(input, output, session) {
 
   # Function to update data
   update_data <- function() {
-    new_data <- map_df(cdec_stations, cdecFlowQuery) %>%
+    new_data <- sta_info %>%
+      split(1:nrow(.)) %>%
+      map_dfr(cdecFlowQuery) %>%
       mutate(
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
         Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
       ) %>%
-      select(StationID, Value) # Only keep relevant columns for gauge display
+      select(StationID, Date, Time, Value) # Only keep relevant columns for gauge display
 
     flow_data(new_data)
     last_update(Sys.time())

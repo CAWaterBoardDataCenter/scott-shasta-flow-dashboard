@@ -5,7 +5,7 @@ library(purrr)
 library(dplyr)
 
 # Sample data frame
-df <- list(
+df <- tibble(
   a = 1:5,
   b = 6:10,
   c = 11:15

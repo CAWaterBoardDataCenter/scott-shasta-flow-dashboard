@@ -1,13 +1,13 @@
 # Define the function to get the latest row of data
-cdecFlowQuery <- function(sta_info) {
+cdecFlowQuery <- function(station, sensor, duration) {
 
   start_date <- as.Date(now()) - 1
   end_date <- as.Date(now())
 
   # Retrieve the data from the CDER API
-  x <- cdecQuery(sta_info$station,
-                 sta_info$sensor,
-                 sta_info$duration,
+  x <- cdecQuery(station,
+                 sensor,
+                 duration,
                  start_date,
                  end_date)
 
@@ -24,6 +24,7 @@ cdecFlowQuery <- function(sta_info) {
 
   return(x)
 }
+
 
 cdecQuery <- function(station,
                       sensor,

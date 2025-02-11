@@ -1,5 +1,5 @@
-﻿station,sensor,duration,lat,lon,station_name,info_url
-SFJ,20,E,,,,
-SRY,20,E,,,,
-SRM,20,E,,,,
-SPU,20,E,,,,
+station,sensor,duration,lat,lon,station_name,info_url,rt_ll,rt_ul
+SFJ,20,E,41.64069,-123.015038,Scott R. near Ft. Jones,https://cdec.water.ca.gov/dynamicapp/staMeta?station_id=SFJ,,
+SRY,20,E,41.822918,-122.595581,Shasta R. near Yreka,https://cdec.water.ca.gov/dynamicapp/staMeta?station_id=SRY,,
+SRM,20,E,41.70903,-122.538078,Shasta R. near Montague,https://cdec.water.ca.gov/dynamicapp/staMeta?station_id=SRM,,
+SPU,20,E,41.61,-122.47111,Shasta R. at Grenada Pump Plant,https://cdec.water.ca.gov/dynamicapp/staMeta?station_id=SPU,,288

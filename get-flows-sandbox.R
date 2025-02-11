@@ -7,18 +7,14 @@ library(stringr)
 library(lubridate)
 library(curl)
 
-sta_info <- read_csv("station-info.csv")
-
 source("cdecFlowQuery.R")
 
+sta_info <- read_csv("station-info.csv")[1:3, 1:3]
 
-start_date <- as.Date(now()) - 1
-end_date <- as.Date(now())
 
 # Call the function
-new_data <- pmap(.l = list(names(sta_info[1:3])),
-                   .f = cdecFlowQuery)
+new_data <- pmap_df(.l = sta_info,
+                    .f = cdecFlowQuery)
 
+new_data2 <- sta_info %>% pmap_df(., cdecFlowQuery)
 
-
-new_data

@@ -9,7 +9,7 @@ library(glue)
 library(stringr)
 library(curl)
 
-sta_info <- read_csv("station-info.csv")[1:3,]
+sta_info <- read_csv("station-info2.csv")
 
 # Station IDs to poll.----
 cdec_stations <- c("SFJ", # Scott R. near Fort Jones
@@ -63,9 +63,8 @@ server <- function(input, output, session) {
 
   # Function to update data
   update_data <- function() {
-    new_data <- sta_info %>%
-      split(1:nrow(.)) %>%
-      map_dfr(cdecFlowQuery) %>%
+    new_data <- sta_info[, 1:3] %>%
+      pmap_dfr(., cdecFlowQuery)  %>%
       mutate(
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
         Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")

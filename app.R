@@ -9,7 +9,7 @@ library(glue)
 library(stringr)
 library(curl)
 
-sta_info <- read_csv("station-info2.csv")
+sta_info <- read_csv("station-info.csv")
 
 # Define the function to fetch flow values
 source("cdecFlowQuery.R")
@@ -38,6 +38,8 @@ server <- function(input, output, session) {
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
         Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
       ) %>%
+
+      mutate(Value = as.numeric(Value)) %>%
       select(StationID, Date, Time, Value) # Only keep relevant columns for gauge display
 
     flow_data(new_data)

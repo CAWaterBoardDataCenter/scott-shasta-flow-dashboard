@@ -2,7 +2,7 @@
 cdecFlowQuery <- function(station, sensor, duration) {
 
   start_date <- as.Date(now()) - 1
-  end_date <- as.Date(now())
+  end_date <- as.Date(now()) + 1
 
   # Retrieve the data from the CDER API
   x <- cdecQuery(station,
@@ -19,7 +19,7 @@ cdecFlowQuery <- function(station, sensor, duration) {
   # Filter for the latest row
   x <- x %>%
     filter(!is.na(Value)) %>%
-    arrange(desc(DateTime)) %>%
+     arrange(desc(DateTime)) %>%
     slice(1)
 
   return(x)
@@ -102,11 +102,12 @@ basic_query <- function(url, col_spec) {
          call. = FALSE)
   value = rawToChar(result$content)
   Encoding(value) = "UTF-8"
-  result = read_csv(value, locale = locale(tz = cdec_tz),
+
+    result = read_csv(value, locale = locale(tz = cdec_tz),
                     na = "---",
-                    col_types = col_spec
-  )
-  if (nrow(problems(result)) > 0L) {
+                    col_types = col_spec)
+
+    if (nrow(problems(result)) > 0L) {
     problem_tf = tempfile(fileext = ".csv")
     problem_rows = str_split(value, "\r\n",
                              simplify = TRUE)[c(1, problems(result)$row)]
@@ -126,13 +127,8 @@ cder_handle = function() {
 }
 
 col_spec = cols(
-  STATION_ID = col_character(),
-  DURATION = col_character(),
-  SENSOR_NUMBER = col_integer(),
-  SENSOR_TYPE = col_character(),
-  `DATE TIME` = col_datetime(),
-  `OBS DATE` = col_datetime(),
-  VALUE = col_double(),
+  VALUE = col_character(),
   DATA_FLAG = col_character(),
-  UNITS = col_character())
+  UNITS = col_character()
+  )
 

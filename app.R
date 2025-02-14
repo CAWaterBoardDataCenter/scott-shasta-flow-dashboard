@@ -1,113 +1,120 @@
-library(shiny)
-library(flexdashboard)
-library(dplyr)
-library(purrr)
-library(cder)
-library(lubridate)
-library(readr)
-library(glue)
-library(stringr)
-library(curl)
+library(bslib)
+library(shinydashboard)
+library(shinydashboardPlus)
+library(leaflet)
+library(flexdashboard)  # For gauge function
 
-sta_info <- read_csv("station-info.csv")
-
-# Station IDs to poll.----
-cdec_stations <- c("SFJ", # Scott R. near Fort Jones
-                   "SRY", # Shasta R. at Yreka
-                   "SRM"#, # Shasta R. near Montague
-#                   "SPU"  # Shasta R. at Grenada Pump Plant
-)
-
-# Define the function to get the latest row of data
-get_sensor20_flows <- function(x, sensor = 20) {
-  # Retrieve the data from the CDER API
-  data <- cder::cdec_query(station = x,
-                           sensor = sensor,
-                           start_date = as.Date(now()),
-                           end_date = as.Date(now()))
-
-  # Check if data is retrieved
-  if (nrow(data) == 0) {
-    stop("No data available for the specified station and sensor.")
-  }
-
-  # Filter for the latest row
-  latest_data <- data %>%
-    filter(!is.na(Value)) %>%
-    arrange(desc(DateTime)) %>%
-    slice(1) %>%
-    select(StationID, DateTime, Value)
-
-  return(latest_data)
-}
-
-# Define the function to fetch flow values
-source("cdecFlowQuery.R")
-
-
-# UI Definition
-ui <- fluidPage(
-  titlePanel("Live Flow Data"),
-  fluidRow(
-    column(12, uiOutput("gauges"))
+ui <- page_fillable(
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "flatly",
+    #  primary = "#0d6efd",
+    "font-size-base" = "1.1rem"
   ),
-  textOutput("lastUpdated")
+
+  # Title Bar with Navy Blue Background
+  # div(
+  #   style = "background-color: #0d6efd; color: white; text-align: center;
+  #            font-size: 24px; font-weight: bold; padding: 15px; width: 100%;",
+  #   "Scott and Shasta Rivers Flow Monitoring Dashboard"
+  # ),
+
+  titlePanel("Scott and Shasta Rivers Flow Monitoring Dashboard - Concept"),
+
+  # Four Gauge Cards Side-by-Side - Takes up 25% of screen height
+  layout_column_wrap(
+    width = 1/4,  # Each gauge card gets 1/4th of the width (so they are side-by-side)
+    height = "25vh",  # This row takes up 25% of the screen
+    gap = "1rem",  # Adds space between the cards
+    card(
+      full_screen = TRUE,
+      card_header( "Gauge 1", class = "gray-400"),
+      card_body(
+        gaugeOutput("gauge1")
+      )
+    ),
+    card(
+      full_screen = TRUE,
+      card_header( "Gauge 2", class = "gray-400"),
+      card_body(
+        gaugeOutput("gauge2")
+      )
+    ),
+    card(
+      full_screen = TRUE,
+      card_header( "Gauge 3", class = "gray-400"),
+      card_body(
+        gaugeOutput("gauge3")
+      )
+    ),
+    card(
+      full_screen = TRUE,
+      card_header( "Gauge 4", class = "gray-400"),
+      card_body(
+        gaugeOutput("gauge4")
+      )
+    )
+  ),
+
+  # Properly aligned Notes (1/3) & Map (2/3)
+  layout_columns(
+    col_widths = c(4, 8),  # Ensures Notes takes 1/4 and Map takes 3/4
+    heights_equal = "row",  # Keeps both cards the same height
+    style = "height: 75vh;",  # Makes this row 75% of the screen height
+
+    card(
+      full_screen = TRUE,
+      card_header( "Information", class = "gray-400"),
+      card_body(
+        markdown("This space can be used to provide information about the dashboard.")
+      )
+    ),
+
+    card(
+      full_screen = TRUE,
+      card_header( "Map", class = "gray-400"),
+      card_body(
+        leafletOutput("map", height = "100%")
+      )
+    )
+  )
+
+
 )
 
-# Server Logic
 server <- function(input, output, session) {
 
-  # Reactive values to store data and update time
-  flow_data <- reactiveVal(NULL)
-  last_update <- reactiveVal(Sys.time())
-
-  # Function to update data
-  update_data <- function() {
-    new_data <- sta_info[, 1:3] %>%
-      pmap_dfr(., cdecFlowQuery)  %>%
-      mutate(
-        Date = as.Date(DateTime, tz = "America/Los_Angeles"),
-        Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
-      ) %>%
-
-      mutate(Value = as.numeric(Value)) %>%
-      select(StationID, Date, Time, Value) # Only keep relevant columns for gauge display
-
-    flow_data(new_data)
-    last_update(Sys.time())
-  }
-
-  # Refresh data every 15 minutes safely
-  observe({
-    invalidateLater(15 * 60 * 1000, session)
-    update_data()
+  # Render Leaflet Map centered at Sacramento, CA
+  output$map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = -121.4944, lat = 38.5816, zoom = 7) # Sacramento, CA
   })
 
-  # Render Gauges in a left-aligned row layout
-  output$gauges <- renderUI({
-    req(flow_data())
-    data <- flow_data()
-
-    gauge_list <- lapply(1:nrow(data), function(i) {
-      div(style = "display: inline-block; width: 200px; margin: 5px;",
-          flexdashboard::gauge(
-            value = data$Value[i],
-            min = 0, max = max(data$Value, na.rm = TRUE) * 1.2,
-            label = paste("Station", data$StationID[i]),
-            gaugeSectors(success = c(0, max(data$Value, na.rm = TRUE) * 0.5),
-                         warning = c(max(data$Value, na.rm = TRUE) * 0.5, max(data$Value, na.rm = TRUE) * 0.8),
-                         danger = c(max(data$Value, na.rm = TRUE) * 0.8, max(data$Value, na.rm = TRUE) * 1.2))
-          ))
-    })
-
-    do.call(div, c(gauge_list, list(style = "text-align: left;")))
+  # Render Gauges with Random Values
+  output$gauge1 <- renderGauge({
+    gauge(sample(1:100, 1), min = 0, max = 100, symbol = "%", sectors = gaugeSectors(
+      success = c(75, 100), warning = c(40, 74), danger = c(0, 39)
+    ))
   })
 
-  # Render Last Updated Time
-  output$lastUpdated <- renderText({
-    paste("Last updated:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
+  output$gauge2 <- renderGauge({
+    gauge(sample(1:100, 1), min = 0, max = 100, symbol = "%", sectors = gaugeSectors(
+      success = c(75, 100), warning = c(40, 74), danger = c(0, 39)
+    ))
+  })
+
+  output$gauge3 <- renderGauge({
+    gauge(sample(1:100, 1), min = 0, max = 100, symbol = "%", sectors = gaugeSectors(
+      success = c(75, 100), warning = c(40, 74), danger = c(0, 39)
+    ))
+  })
+
+  output$gauge4 <- renderGauge({
+    gauge(sample(1:100, 1), min = 0, max = 100, symbol = "%", sectors = gaugeSectors(
+      success = c(75, 100), warning = c(40, 74), danger = c(0, 39)
+    ))
   })
 }
 
-# Run the Shiny App
-shinyApp(ui = ui, server = server)
+shinyApp(ui, server)

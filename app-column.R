@@ -17,39 +17,38 @@ ui <- page_fillable(
     column(width = 4,
 
            fluidRow(
-             #   col_widths = c(6, 6),
              card(
-               full_screen = TRUE,
-               card_header("Gauge 1", class = "gray-400"),
-               card_body(
-                 gaugeOutput("gauge1") # Content for Gauge 1
-               )
-             ),
-             card(
-               full_screen = TRUE,
-               #    height = "25vh",  # This row takes up 25% of the screen
-               card_header("Gauge 2", class = "gray-400"),
-               card_body(
-                 gaugeOutput("gauge2") # Content for Gauge 2
-               )
+               # #      height = "25vh",  # This row takes up 25% of the screen
+               #      full_screen = TRUE,
+               #      card(
+               #      card_header("Gauge 1", class = "gray-400"),
+               #      card_body(
+               gaugeOutput("gauge1"), # Content for Gauge 1
+               #   )
+               # ),
+               # card(
+               #   full_screen = TRUE,
+               #    card_header("Gauge 2", class = "gray-400"),
+               #   card_body(
+               gaugeOutput("gauge2") # Content for Gauge 2
              )
            )
-    ),
-    column(width =8,
-
-           card(
-             full_screen = TRUE,
-             card_header("Map", class = "gray-400"),
-             card_body(
-               leafletOutput("map") # Content for map.
-             )
-           )
-
     )
+  ),
+  column(width = 8,
+
+         card(
+           full_screen = TRUE,
+           card_header("Map", class = "gray-400"),
+           card_body(
+             leafletOutput("map") # Content for map.
+           )
+         )
+
   ),
 
   fluidRow(
- #   column(width = 12,
+    column(width = 12,
            card(
              full_screen = TRUE,
              card_header("About The Dashboard", class = "gray-400"),
@@ -59,7 +58,8 @@ ui <- page_fillable(
                )
              )
            )
-  #  )
+           #  )
+    )
   )
 )
 

@@ -33,6 +33,5 @@ docs/
 po/*~
 # RStudio Connect folder
 rsconnect/
-
 # R project file
 scott-shasta-flow-dashboard.Rproj

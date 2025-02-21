@@ -1,8 +1,19 @@
-library(bslib)
-library(shinydashboard)
-library(shinydashboardPlus)
-library(leaflet)
-library(flexdashboard)  # For gauge function
+library(shiny)
+library(flexdashboard)
+library(dplyr)
+library(purrr)
+library(cder)
+library(lubridate)
+library(readr)
+library(glue)
+library(stringr)
+library(curl)
+
+# Load station information. ----
+sta_info <- read_csv("station-info.csv")
+
+# Load functions to fetch flow values. ----
+source("cdecFlowQuery.R")
 
 # Define cards. ----
 

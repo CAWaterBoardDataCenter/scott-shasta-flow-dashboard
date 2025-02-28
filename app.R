@@ -53,15 +53,18 @@ about_card <- card(
   #  full_screen = TRUE,
   card_header("About The Dashboard"),
   card_body(
-    p("This dashboard is a concept for monitoring the flow of the Scott and Shasta Rivers."),
-    br(),
-    textOutput("lastUpdated")
+    p("This dashboard is a concept for monitoring the flow of the Scott and Shasta Rivers.")
   )
 )
 
 # Define UI. ----
 ui <- fluidPage(
   theme = bslib::bs_theme(preset = "litera"),
+
+  # Load CSS styles for the dashboard.
+  tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
+  ),
 
   titlePanel("Scott and Shasta Rivers Flow Monitoring Dashboard"),
 
@@ -77,7 +80,8 @@ ui <- fluidPage(
     ),
     map_card,
   ),
-  about_card
+  about_card,
+  textOutput("lastUpdated")
 
 )
 
@@ -170,25 +174,32 @@ server <- function(input, output, session) {
   # Render leaflet map centered on Sacramento, CA.
   output$map <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$OpenTopoMap) %>%
- #     addTiles() %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      #     addTiles() %>%
       #add points for SFJ and SRY
-      addCircleMarkers(lng = -123.0150,
+      addCircleMarkers(group = "cdec-gages",
+                       lng = -123.0150,
                        lat = 41.64069,
                        radius = 10,
                        color = "red",
                        fillOpacity = 1,
-                       label = "SFJ",
+                       label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
                        labelOptions = labelOptions(noHide = TRUE,
-                                                   textsize = "15px")) %>%
-      addCircleMarkers(lng = -122.5956,
-                 lat = 41.82292,
-                 radius = 10,
-                 color = "red",
-                 fillOpacity = 1,
-                 label = "SRY",
-                 labelOptions = labelOptions(noHide = TRUE,
-                                             textsize = "15px"))
+                                                   interactive = TRUE,
+                                                   direction = "bottom",
+                                                   textsize = "15px")
+      ) %>%
+      addCircleMarkers(group = "cdec-gages",,
+                       lng = -122.5956,
+                       lat = 41.82292,
+                       radius = 10,
+                       color = "red",
+                       fillOpacity = 1,
+                       label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"),
+                       labelOptions = labelOptions(noHide = TRUE,
+                                                   interactive = TRUE,
+                                                   direction = "bottom",
+                                                   textsize = "15px"))
   })
 
   # Render Last Updated Time

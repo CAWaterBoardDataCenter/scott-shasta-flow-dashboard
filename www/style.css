@@ -1,0 +1,61 @@
+/* General Styles */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+/* Card Styling */
+.card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card-header {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  background-color: #e9ecef;
+  padding: 10px;
+  border-radius: 10px 10px 0 0;
+  border-bottom: none;
+  width: 100%;
+}
+
+.card-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Leaflet Map Styling */
+.leaflet-container {
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Gauges and Outputs */
+.text-output {
+  font-size: 16px;
+  font-weight: bold;
+  color: #555;
+  margin-top: 10px;
+}
+
+/* Navbar Styling */
+.navbar {
+  background-color: #007BFF !important;
+  border-bottom: 3px solid #0056b3;
+}
+
+.navbar-brand, .navbar-nav .nav-link {
+  color: white !important;
+  font-weight: bold;
+}

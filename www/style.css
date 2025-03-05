@@ -1,6 +1,11 @@
 /* General Styles */
-body {
+
+html {
   font-family: 'Arial', sans-serif;
+  font-size: 10pt;
+}
+
+body {
   background-color: #f4f4f4;
   color: #333;
 }
@@ -10,7 +15,7 @@ body {
   background: white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 15px;
+  padding: 5px;
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
@@ -18,11 +23,11 @@ body {
 }
 
 .card-header {
-  font-size: 18px;
+  font-size: 14pt;
   font-weight: bold;
   color: #333;
   background-color: #e9ecef;
-  padding: 10px;
+  padding: 5px;
   border-radius: 10px 10px 0 0;
   border-bottom: none;
   width: 100%;
@@ -30,10 +35,18 @@ body {
 
 .card-body {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   height: 100%;
+  flex-direction: column;
 }
+
+#about_card .card-body {
+  font-size: 9pt !important;
+  text-align: left !important;
+}
+
+
 
 /* Leaflet Map Styling */
 .leaflet-container {
@@ -43,10 +56,14 @@ body {
 
 /* Gauges and Outputs */
 .text-output {
-  font-size: 16px;
+  font-size: 16pt;
   font-weight: bold;
   color: #555;
   margin-top: 10px;
+}
+
+#sry_recorded, #sfj_recorded {
+  font-size: 12pt;
 }
 
 /* Navbar Styling */

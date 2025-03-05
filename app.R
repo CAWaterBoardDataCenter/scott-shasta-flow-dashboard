@@ -22,7 +22,7 @@ source("cdecFlowQuery.R")
 
 # Define Gauge 1 card.
 g1_card <- card(
-  card_header("Scott R. at Fort Jones (SFJ)"),
+  card_header(HTML("Scott R. at Fort Jones<br/>(SFJ)")),
   card_body(
     textOutput("sfj_recorded"),
     gaugeOutput("gauge_sfj"),
@@ -31,7 +31,7 @@ g1_card <- card(
 
 # Define Gauge 2 card.
 g2_card <- card(
-  card_header("Shasta R. at Yreka (SRY)"),
+  card_header(HTML("Shasta R. at Yreka<br/>(SRY)")),
   card_body(
     textOutput("sry_recorded"),
     gaugeOutput("gauge_sry")
@@ -49,16 +49,18 @@ map_card <- card(
 
 # Define About card.
 about_card <- card(
-  height = "25vh",
-  #  full_screen = TRUE,
+ # height = "25vh",
+  fillable = TRUE,
+  fill = TRUE,
   card_header("About The Dashboard"),
-  card_body(
-    p("This dashboard is a concept for monitoring the flow of the Scott and Shasta Rivers.")
-  )
+   card_body(
+     p("This is inside a paragraph tag."),
+    "This is not inside a paragraph tag."
+   )
 )
 
 # Define UI. ----
-ui <- fluidPage(
+ui <- page_fillable(
   theme = bslib::bs_theme(preset = "litera"),
 
   # Load CSS styles for the dashboard.
@@ -70,7 +72,7 @@ ui <- fluidPage(
 
   layout_column_wrap(
     width = NULL,
-    height = 700,
+    height = 600,
     fill = FALSE,
     style = css(grid_template_columns = "1fr 3fr"),
     layout_column_wrap(
@@ -140,7 +142,7 @@ server <- function(input, output, session) {
     data <- flow_data()
     data <- data %>%
       filter(StationID == "SFJ")
-    paste("Last recorded:", data$DateTime)
+    paste("Recorded:", data$DateTime)
   })
 
   # Render SRY gauge.
@@ -168,7 +170,7 @@ server <- function(input, output, session) {
     data <- flow_data()
     data <- data %>%
       filter(StationID == "SRY")
-    paste("Last recorded:", data$DateTime)
+    paste("Recorded:", data$DateTime)
   })
 
   # Render leaflet map centered on Sacramento, CA.

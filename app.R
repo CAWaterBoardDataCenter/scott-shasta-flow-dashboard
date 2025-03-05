@@ -12,8 +12,24 @@ library(stringr)
 library(curl)
 library(DT)
 
+limit_col_types <- cols(
+  day_month = col_date(format = "%m/%d/%y"),
+  mif = col_double(),
+  success_hi = col_double(),
+  success_lo = col_double(),
+  warning_hi = col_double(),
+  warning_lo = col_double(),
+  danger_hi = col_double(),
+  danger_lo = col_double()
+)
+
 # Load station information. ----
-sta_info <- read_csv("station-info.csv")
+sta_info <- read_csv("data/station-info.csv")
+sfj_limits <- read_csv("data/sfj-limits.csv",
+                       col_types = limit_col_types)
+
+sry_limits <- read_csv("data/sry-limits.csv",
+                       col_types = limit_col_types)
 
 # Load functions to fetch flow values. ----
 source("cdecFlowQuery.R")
@@ -49,14 +65,14 @@ map_card <- card(
 
 # Define About card.
 about_card <- card(
- # height = "25vh",
+  # height = "25vh",
   fillable = TRUE,
   fill = TRUE,
   card_header("About The Dashboard"),
-   card_body(
-     p("This is inside a paragraph tag."),
+  card_body(
+    p("This is inside a paragraph tag."),
     "This is not inside a paragraph tag."
-   )
+  )
 )
 
 # Define UI. ----

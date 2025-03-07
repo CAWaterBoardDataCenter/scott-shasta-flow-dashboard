@@ -12,27 +12,31 @@ library(stringr)
 library(curl)
 library(DT)
 
-limit_col_types <- cols(
-  day_month = col_date(format = "%m/%d/%y"),
-  mif = col_double(),
-  success_hi = col_double(),
-  success_lo = col_double(),
-  warning_hi = col_double(),
-  warning_lo = col_double(),
-  danger_hi = col_double(),
-  danger_lo = col_double()
-)
-
-# Load station information. ----
+# Load data. ----
+# Station information.
 sta_info <- read_csv("data/station-info.csv")
-sfj_limits <- read_csv("data/sfj-limits.csv",
-                       col_types = limit_col_types)
 
-sry_limits <- read_csv("data/sry-limits.csv",
-                       col_types = limit_col_types)
+# Minimum instream flow time series.
+load("data/mif-tables.RData")
 
 # Load functions to fetch flow values. ----
 source("cdecFlowQuery.R")
+
+# Pull today's mimumum instream flow values. ----
+
+sameMonthDay <- function(date1, date2) {
+  # Convert the strings to date objects
+  d1 <- ymd(date1)
+  d2 <- ymd(date2)
+
+  # Compare month and day
+  identical(month(d1), month(d2)) && identical(day(d1), day(d2))
+}
+
+mifs_today <- map(mifs, ~
+                    filter(.x, map_lgl(day_month,
+                                       ~ sameMonthDay(.x, Sys.Date())))
+)
 
 # Define cards. ----
 
@@ -42,6 +46,7 @@ g1_card <- card(
   card_body(
     textOutput("sfj_recorded"),
     gaugeOutput("gauge_sfj"),
+    textOutput("sfj_mif")
   )
 )
 
@@ -50,7 +55,8 @@ g2_card <- card(
   card_header(HTML("Shasta R. at Yreka<br/>(SRY)")),
   card_body(
     textOutput("sry_recorded"),
-    gaugeOutput("gauge_sry")
+    gaugeOutput("gauge_sry"),
+    textOutput("sry_mif")
   )
 )
 
@@ -142,23 +148,27 @@ server <- function(input, output, session) {
 
     gauge(
       value = data$Value,
-      min = 0, max = 1000,
+      min = 0, max = ceiling(data$Value / 100) * 100,
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(241, 1000),
-                             warning = c(201, 240),
-                             danger = c(0,200)
+      sectors = gaugeSectors(success = c(mifs_today$sfj_limits$success_lo, ceiling(data$Value / 100) * 100),
+                             warning = c(mifs_today$sfj_limits$warning_lo, mifs_today$sfj_limits$warning_hi),
+                             danger = c(0,mifs_today$sfj_limits$danger_hi)
       )
     )
   })
 
-  # render last recorded date.
+   # render last recorded date.
   output$sfj_recorded <- renderText({
     req(flow_data())
     data <- flow_data()
     data <- data %>%
       filter(StationID == "SFJ")
     paste("Recorded:", data$DateTime)
+  })
+
+  output$sfj_mif <- renderText({
+    paste("Minimum Instream Flow:", mifs_today$sfj_limits$mif, "cfs")
   })
 
   # Render SRY gauge.
@@ -173,9 +183,9 @@ server <- function(input, output, session) {
       min = 0, max = 1000,
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(241, 1000),
-                             warning = c(201, 240),
-                             danger = c(0,200)
+      sectors = gaugeSectors(success = c(mifs_today$sry_limits$success_lo, ceiling(data$Value / 100) * 100),
+                             warning = c(mifs_today$sry_limits$warning_lo, mifs_today$sry_limits$warning_hi),
+                             danger = c(0,mifs_today$sry_limits$danger_hi)
       )
     )
   })
@@ -187,6 +197,10 @@ server <- function(input, output, session) {
     data <- data %>%
       filter(StationID == "SRY")
     paste("Recorded:", data$DateTime)
+  })
+
+  output$sry_mif <- renderText({
+    paste("Minimum Instream Flow:", mifs_today$sry_limits$mif, "cfs")
   })
 
   # Render leaflet map centered on Sacramento, CA.

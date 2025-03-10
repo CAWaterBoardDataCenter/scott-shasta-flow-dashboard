@@ -76,8 +76,8 @@ about_card <- card(
   fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
-    p("This is inside a paragraph tag."),
-    "This is not inside a paragraph tag."
+    "This dashboard monitors the flow of the Scott and Shasta Rivers at the gauges where Minimum Instream Flows must be met.",br(),
+    "Click Station labels on the map to view plots of recent flows."
   )
 )
 
@@ -158,7 +158,7 @@ server <- function(input, output, session) {
     )
   })
 
-   # render last recorded date.
+  # render last recorded date.
   output$sfj_recorded <- renderText({
     req(flow_data())
     data <- flow_data()

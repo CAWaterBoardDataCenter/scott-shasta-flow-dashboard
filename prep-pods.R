@@ -26,7 +26,7 @@ pod_curtail_status <- pod_curtail_status %>%
   mutate(curtail_status = factor(curtail_status, levels = expected_levels))
 
 # Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red
-pal <- colorFactor(palette = c("green", "red"), domain = expected_levels)
+pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
 
 # Create Leaflet map
 leaflet(pod_curtail_status) %>%
@@ -40,3 +40,8 @@ leaflet(pod_curtail_status) %>%
     stroke = FALSE,
     fillOpacity = 0.6
   )
+
+data.frame(
+  Package = names(sessionInfo()$otherPkgs),
+  Version = sapply(sessionInfo()$otherPkgs, `[[`, "Version")
+)

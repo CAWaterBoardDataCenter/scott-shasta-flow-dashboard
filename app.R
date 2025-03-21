@@ -38,6 +38,33 @@ mifs_today <- map(mifs, ~
                                        ~ sameMonthDay(.x, Sys.Date())))
 )
 
+# Load and prepare PODs. ----
+
+# Load data set.
+pod_curtail_status_raw <- read_csv("pod-curtail-status.csv")
+
+# Process data.
+pod_curtail_status <- pod_curtail_status_raw %>%
+  select(wr_id = `Application Number`,
+         owner = `Primary Owner`,
+         lat = Latitude,
+         lon = Longitude,
+         curtail_status = `Curtailment Status`) %>%
+  mutate(curtail_status = trimws(as.character(curtail_status)))  # Remove spaces
+
+# Define expected order of curtailment statuses.
+expected_levels <- c("Not Curtailed", "Curtailed")
+
+# Extract actual levels present in the dataset while preserving expected order
+actual_levels <- expected_levels[expected_levels %in% unique(pod_curtail_status$curtail_status)]
+
+# Convert to factor using expected order to maintain color consistency.
+pod_curtail_status <- pod_curtail_status %>%
+  mutate(curtail_status = factor(curtail_status, levels = expected_levels))
+
+# Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red.
+pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
+
 # Define cards. ----
 
 # Define Gauge 1 card.
@@ -63,7 +90,7 @@ g2_card <- card(
 #Define Map card.
 map_card <- card(
   full_screen = TRUE,
-  card_header("Map"),
+  card_header("Point of Diversion Curtailment Status Map"),
   card_body(
     leafletOutput("map", height = "100%")
   )
@@ -81,7 +108,8 @@ about_card <- card(
   )
 )
 
-# Define UI. ----
+# Define UI. --------
+
 ui <- page_fillable(
   theme = bslib::bs_theme(preset = "litera"),
 
@@ -208,12 +236,13 @@ server <- function(input, output, session) {
     leaflet() %>%
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
       #     addTiles() %>%
-      #add points for SFJ and SRY
+
+      # Add guage points for SFJ and SRY/
       addCircleMarkers(group = "cdec-gages",
                        lng = -123.0150,
                        lat = 41.64069,
                        radius = 10,
-                       color = "red",
+                       color = "blue",
                        fillOpacity = 1,
                        label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
                        labelOptions = labelOptions(noHide = TRUE,
@@ -221,17 +250,42 @@ server <- function(input, output, session) {
                                                    direction = "bottom",
                                                    textsize = "15px")
       ) %>%
-      addCircleMarkers(group = "cdec-gages",,
+      addCircleMarkers(group = "cdec-gages",
                        lng = -122.5956,
                        lat = 41.82292,
                        radius = 10,
-                       color = "red",
+                       color = "blue",
                        fillOpacity = 1,
                        label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"),
                        labelOptions = labelOptions(noHide = TRUE,
                                                    interactive = TRUE,
                                                    direction = "bottom",
-                                                   textsize = "15px"))
+                                                   textsize = "15px")) %>%
+
+      # Add pod_curtailment_status points.
+      addCircleMarkers(
+        group = "pods",
+        data = pod_curtail_status,
+        lng = ~lon,
+        lat = ~lat,
+        popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
+        radius = 6,
+        color = ~pal(curtail_status),  # Now correctly mapped
+        stroke = TRUE,
+        weight = 1.0,
+        fillOpacity = 0.5
+      ) %>%
+
+      # Add legend for curtailment status.
+      addLegend(
+        group = "pods",
+        data = pod_curtail_status,
+        position = "bottomright",
+        pal = pal,
+        values = ~curtail_status,
+        title = "Curtailment Status",
+        opacity = 1
+      )
   })
 
   # Render Last Updated Time

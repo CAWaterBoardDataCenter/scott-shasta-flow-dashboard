@@ -10,6 +10,20 @@ body {
   color: #333;
 }
 
+/* Title and Logo Container */
+.title-container {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Space between logo and title */
+  padding: 10px;
+}
+
+/* Logo Styling */
+.logo {
+  height: 60px; /* Adjust size as needed */
+  width: auto;
+}
+
 /* Card Styling */
 .card {
   background: white;

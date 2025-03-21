@@ -1,13 +1,14 @@
 library(tidyr)
 library(dplyr)
-library(leaflet)
-library(readr)
+library(readxl)
+library(aws.s3)
 
-# Load data set.
-pod_curtail_status_raw <- read_csv("pod-curtail-status.csv")
+# Load data sets.
+shasta_pods <- read_xlsx("./aws-data/ShastaPBI.xlsx")
+scott_pods <- read_xlsx("./aws-data/ScottPBI.xlsx")
 
 # Process data.
-pod_curtail_status <- pod_curtail_status_raw %>%
+pods <- bind_rows(shasta_pods, scott_pods) %>%
   select(wr_id = `Application Number`,
          owner = `Primary Owner`,
          lat = Latitude,
@@ -15,34 +16,16 @@ pod_curtail_status <- pod_curtail_status_raw %>%
          curtail_status = `Curtailment Status`) %>%
   mutate(curtail_status = trimws(as.character(curtail_status)))  # Remove spaces
 
-# Define expected order of curtailment statuses.
-expected_levels <- c("Not Curtailed", "Curtailed")
+prep_date <- Sys.time()
 
-# Extract actual levels present in the dataset while preserving expected order
-actual_levels <- expected_levels[expected_levels %in% unique(pod_curtail_status$curtail_status)]
+# Save pods and prep_date in a .RData file.
+save(pods, prep_date, file = "pods.RData")
 
-# Convert to factor using expected order to maintain color consistency.
-pod_curtail_status <- pod_curtail_status %>%
-  mutate(curtail_status = factor(curtail_status, levels = expected_levels))
-
-# Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red.
-pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
-
-# Create Leaflet map
-leaflet(pod_curtail_status) %>%
-  addTiles() %>%
-  addCircleMarkers(
-    lng = ~lon,
-    lat = ~lat,
-    popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
-    radius = 6,
-    color = ~pal(curtail_status),  # Now correctly mapped
-    stroke = TRUE,
-    weight = 1.0,
-    fillOpacity = 0.5
-  )
-
-data.frame(
-  Package = names(sessionInfo()$otherPkgs),
-  Version = sapply(sessionInfo()$otherPkgs, `[[`, "Version")
+# Upload the .RData file to "dwr-shiny-apps" AWS S3 bucket.
+put_object(
+  file = "pods.RData",
+  object = "scott-shasta-monitoring-pods",
+  bucket = "dwr-shiny-apps"
 )
+
+

@@ -1,3 +1,4 @@
+library(aws.s3)
 library(shiny)
 library(flexdashboard)
 library(bslib)
@@ -41,25 +42,34 @@ mifs_today <- map(mifs, ~
 # Load and prepare PODs. ----
 
 # Load data set.
-pod_curtail_status_raw <- read_csv("pod-curtail-status.csv")
+obj <- get_object(
+  object = "scott-shasta-monitoring-pods",
+  bucket = "dwr-shiny-apps",
+  as = "raw"
+)
 
-# Process data.
-pod_curtail_status <- pod_curtail_status_raw %>%
-  select(wr_id = `Application Number`,
-         owner = `Primary Owner`,
-         lat = Latitude,
-         lon = Longitude,
-         curtail_status = `Curtailment Status`) %>%
-  mutate(curtail_status = trimws(as.character(curtail_status)))  # Remove spaces
+# Convert raw object to R readable format.
+raw_conn <- rawConnection(obj)
+load(raw_conn)
+close(raw_conn)
+#
+# # Process data.
+# pod_curtail_status <- pods %>%
+#   select(wr_id = `Application Number`,
+#          owner = `Primary Owner`,
+#          lat = Latitude,
+#          lon = Longitude,
+#          curtail_status = `Curtailment Status`) %>%
+#   mutate(curtail_status = trimws(as.character(curtail_status)))  # Remove spaces
 
 # Define expected order of curtailment statuses.
 expected_levels <- c("Not Curtailed", "Curtailed")
 
 # Extract actual levels present in the dataset while preserving expected order
-actual_levels <- expected_levels[expected_levels %in% unique(pod_curtail_status$curtail_status)]
+actual_levels <- expected_levels[expected_levels %in% unique(pods$curtail_status)]
 
 # Convert to factor using expected order to maintain color consistency.
-pod_curtail_status <- pod_curtail_status %>%
+pods <- pods %>%
   mutate(curtail_status = factor(curtail_status, levels = expected_levels))
 
 # Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red.
@@ -118,7 +128,12 @@ ui <- page_fillable(
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
   ),
 
-  titlePanel("Scott and Shasta Rivers Flow Monitoring Dashboard"),
+  # Modified titlePanel with logo
+  div(
+    class = "title-container",
+    img(src = "enf-logo.png", class = "logo"),
+    h1("Scott and Shasta Rivers Flow Monitoring Dashboard")
+  ),
 
   layout_column_wrap(
     width = NULL,
@@ -165,9 +180,7 @@ server <- function(input, output, session) {
     update_data()
   })
 
-
-
-  # Render SFJ gauge
+  # Render SFJ gauge. ----
   output$gauge_sfj <- renderGauge({
     req(flow_data())
     data <- flow_data()
@@ -199,7 +212,7 @@ server <- function(input, output, session) {
     paste("Minimum Instream Flow:", mifs_today$sfj_limits$mif, "cfs")
   })
 
-  # Render SRY gauge.
+  # Render SRY gauge. ----
   output$gauge_sry <- renderGauge({
     req(flow_data())
     data <- flow_data()
@@ -231,7 +244,7 @@ server <- function(input, output, session) {
     paste("Minimum Instream Flow:", mifs_today$sry_limits$mif, "cfs")
   })
 
-  # Render leaflet map centered on Sacramento, CA.
+  # Render leaflet map. ----
   output$map <- renderLeaflet({
     leaflet() %>%
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
@@ -265,7 +278,7 @@ server <- function(input, output, session) {
       # Add pod_curtailment_status points.
       addCircleMarkers(
         group = "pods",
-        data = pod_curtail_status,
+        data = pods,
         lng = ~lon,
         lat = ~lat,
         popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
@@ -279,7 +292,7 @@ server <- function(input, output, session) {
       # Add legend for curtailment status.
       addLegend(
         group = "pods",
-        data = pod_curtail_status,
+        data = pods,
         position = "bottomright",
         pal = pal,
         values = ~curtail_status,

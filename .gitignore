@@ -35,3 +35,4 @@ po/*~
 rsconnect/
 # R project file
 scott-shasta-flow-dashboard.Rproj
+app.Renviron

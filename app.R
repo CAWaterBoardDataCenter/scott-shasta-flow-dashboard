@@ -79,7 +79,7 @@ pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
 
 # Define Gauge 1 card.
 g1_card <- card(
-  card_header(HTML("Scott R. at Fort Jones<br/>(SFJ)")),
+  card_header(HTML("Scott R. at Fort Jones (SFJ)")),
   card_body(
     textOutput("sfj_recorded"),
     gaugeOutput("gauge_sfj"),
@@ -89,7 +89,7 @@ g1_card <- card(
 
 # Define Gauge 2 card.
 g2_card <- card(
-  card_header(HTML("Shasta R. at Yreka<br/>(SRY)")),
+  card_header(HTML("Shasta R. at Yreka (SRY)")),
   card_body(
     textOutput("sry_recorded"),
     gaugeOutput("gauge_sry"),
@@ -113,10 +113,28 @@ about_card <- card(
   fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
-    "This dashboard monitors the flow of the Scott and Shasta Rivers at the gauges where Minimum Instream Flows must be met.",br(),
-    "Click Station labels on the map to view plots of recent flows."
+    div(class = "card-body",
+        p("This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is collected from the Dept. of Water Resources' ",
+          tags$a(href = "https://cdec.water.ca.gov/", "California Data Exchange Center (CDEC)", target = "_blank"),
+          " and is updated every 15 minutes. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."),
+        tags$ul(
+
+          tags$li("Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."),
+          br(),
+          tags$li(
+            "Link to Scott River Curtailment Webpage: ",
+            tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/scott_2024addendums.html", "Scott River Watershed Curtailment Orders and Addendums", target = "_blank")
+          ),
+          br(),
+          tags$li(
+            "Link to Shasta River Curtailment Webpage: ",
+            tags$a(href = "https://waterboards.ca.gov", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")
+          )
+        )
+    )
   )
 )
+
 
 # Define UI. --------
 
@@ -148,7 +166,12 @@ ui <- page_fillable(
     map_card,
   ),
   about_card,
-  textOutput("lastUpdated")
+
+  # Last updated text.
+  div(class = "last-updated-container",
+      div(class = "left-updated", textOutput("gaugeLastUpdated")),
+      div(class = "right-updated", textOutput("podLastUpdated"))
+  )
 
 )
 
@@ -301,9 +324,21 @@ server <- function(input, output, session) {
       )
   })
 
-  # Render Last Updated Time
-  output$lastUpdated <- renderText({
-    paste("Last update:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
+  # # Render time gauge data was last retrieved.
+  # output$lastUpdated <- renderText({
+  #   paste0("Gauge data last retrieved: ", format(last_update(), "%Y-%m-%d %H:%M:%S"), ".      ",
+  #         "POD curtailment data last updated:", format(prep_date, "%Y-%m-%d")
+  #         )
+  # })
+
+  # Render time gauge data was last retrieved.
+  output$gaugeLastUpdated <- renderText({
+    paste("Gauge data last retrieved:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
+  })
+
+  # Render time POD data was last updated.
+  output$podLastUpdated <- renderText({
+    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d"))  # Customize as needed
   })
 
   # Render flow datatable.

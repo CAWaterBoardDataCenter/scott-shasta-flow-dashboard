@@ -13,12 +13,39 @@ library(stringr)
 library(curl)
 library(DT)
 
+# Set application state (development or production). ----
+Sys.setenv(R_CONFIG_ACTIVE = "production")
+
 # Load data. ----
 # Station information.
 sta_info <- read_csv("data/station-info.csv")
 
 # Minimum instream flow time series.
 load("data/mif-tables.RData")
+
+# # Load and prepare POD data set. ----
+
+# Load config data.
+config_data <- config::get()
+
+# Set AWS credentials and region as environment variables
+Sys.setenv(
+  "AWS_BUCKET" = config_data$aws$bucket,
+  "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
+  "AWS_SECRET_ACCESS_KEY" = config_data$aws$secret_key,
+  "AWS_DEFAULT_REGION" = config_data$aws$region
+)
+
+# Load data.
+obj <- get_object(
+  object = "scott-shasta-monitoring-pods",
+  bucket = Sys.getenv("AWS_BUCKET"),
+  as = "raw")
+
+# Convert raw object to R readable format.
+raw_conn <- rawConnection(obj)
+load(raw_conn)
+close(raw_conn)
 
 # Load functions to fetch flow values. ----
 source("cdecFlowQuery.R")
@@ -38,29 +65,6 @@ mifs_today <- map(mifs, ~
                     filter(.x, map_lgl(day_month,
                                        ~ sameMonthDay(.x, Sys.Date())))
 )
-
-# Load and prepare PODs. ----
-
-# Load data set.
-obj <- get_object(
-  object = "scott-shasta-monitoring-pods",
-  bucket = "dwr-shiny-apps",
-  as = "raw"
-)
-
-# Convert raw object to R readable format.
-raw_conn <- rawConnection(obj)
-load(raw_conn)
-close(raw_conn)
-#
-# # Process data.
-# pod_curtail_status <- pods %>%
-#   select(wr_id = `Application Number`,
-#          owner = `Primary Owner`,
-#          lat = Latitude,
-#          lon = Longitude,
-#          curtail_status = `Curtailment Status`) %>%
-#   mutate(curtail_status = trimws(as.character(curtail_status)))  # Remove spaces
 
 # Define expected order of curtailment statuses.
 expected_levels <- c("Not Curtailed", "Curtailed")

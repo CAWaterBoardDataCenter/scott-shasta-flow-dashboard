@@ -86,7 +86,6 @@ g1_card <- card(
   card_header(HTML("Scott R. at Fort Jones (SFJ)")),
   card_body(
     textOutput("sfj_recorded"),
-    br(),
     gaugeOutput("gauge_sfj"),
     textOutput("sfj_mif")
   )
@@ -97,7 +96,6 @@ g2_card <- card(
   card_header(HTML("Shasta R. at Yreka (SRY)")),
   card_body(
     textOutput("sry_recorded"),
-    br(),
     gaugeOutput("gauge_sry"),
     textOutput("sry_mif")
   )

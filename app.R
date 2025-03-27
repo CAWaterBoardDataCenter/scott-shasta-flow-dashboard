@@ -112,24 +112,24 @@ map_card <- card(
 
 # Define About card.
 about_card <- card(
-  # height = "25vh",
-  fillable = TRUE,
-  fill = TRUE,
+ #  height = "10vh",
+ # fillable = TRUE,
+ # fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
     div(class = "card-body",
-        p("This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is collected from the Dept. of Water Resources' ",
+        p("This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is retrieved from the Dept. of Water Resources' ",
           tags$a(href = "https://cdec.water.ca.gov/", "California Data Exchange Center (CDEC)", target = "_blank"),
-          " and is updated every 15 minutes. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."),
+          " at 15-minute intervals. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."),
         tags$ul(
 
           tags$li("Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."),
-          br(),
+         # br(),
           tags$li(
             "Link to Scott River Curtailment Webpage: ",
             tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/scott_2024addendums.html", "Scott River Watershed Curtailment Orders and Addendums", target = "_blank")
           ),
-          br(),
+        #  br(),
           tags$li(
             "Link to Shasta River Curtailment Webpage: ",
             tags$a(href = "https://waterboards.ca.gov", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")
@@ -159,7 +159,7 @@ ui <- page_fillable(
 
   layout_column_wrap(
     width = NULL,
-    height = 600,
+    height = 510,
     fill = FALSE,
     style = css(grid_template_columns = "1fr 3fr"),
     layout_column_wrap(

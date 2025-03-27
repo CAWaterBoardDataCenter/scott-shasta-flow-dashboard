@@ -81,27 +81,29 @@ pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
 
 # Define cards. ----
 
-# Define Gauge 1 card.
+## Define Gauge 1 card. ----
 g1_card <- card(
   card_header(HTML("Scott R. at Fort Jones (SFJ)")),
   card_body(
     textOutput("sfj_recorded"),
+    br(),
     gaugeOutput("gauge_sfj"),
     textOutput("sfj_mif")
   )
 )
 
-# Define Gauge 2 card.
+## Define Gauge 2 card. ----
 g2_card <- card(
   card_header(HTML("Shasta R. at Yreka (SRY)")),
   card_body(
     textOutput("sry_recorded"),
+    br(),
     gaugeOutput("gauge_sry"),
     textOutput("sry_mif")
   )
 )
 
-#Define Map card.
+## Define Map card. ----
 map_card <- card(
   full_screen = TRUE,
   card_header("Point of Diversion Curtailment Status Map"),
@@ -110,7 +112,7 @@ map_card <- card(
   )
 )
 
-# Define About card.
+## Define About card. ----
 about_card <- card(
   # height = "25vh",
   fillable = TRUE,
@@ -124,12 +126,12 @@ about_card <- card(
         tags$ul(
 
           tags$li("Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."),
-          br(),
+      #    br(),
           tags$li(
             "Link to Scott River Curtailment Webpage: ",
             tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/scott_2024addendums.html", "Scott River Watershed Curtailment Orders and Addendums", target = "_blank")
           ),
-          br(),
+      #    br(),
           tags$li(
             "Link to Shasta River Curtailment Webpage: ",
             tags$a(href = "https://waterboards.ca.gov", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")

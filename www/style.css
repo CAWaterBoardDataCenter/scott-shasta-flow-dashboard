@@ -1,13 +1,14 @@
 /* General Styles */
-
 html {
   font-family: 'Arial', sans-serif;
-  font-size: 10pt;
+  font-size: 9pt; /* Increase base font size */
 }
 
 body {
   background-color: #CAE1FF;
   color: #333;
+  margin: 0;
+  padding: 0;
 }
 
 p {
@@ -18,13 +19,13 @@ p {
 .title-container {
   display: flex;
   align-items: center;
-  gap: 10px; /* Space between logo and title */
+  gap: 15px; /* Increase gap for spacing */
   padding: 3px;
 }
 
 /* Logo Styling */
 .logo {
-  height: 60px; /* Adjust size as needed */
+  height: 60px;
   width: auto;
 }
 
@@ -33,38 +34,40 @@ p {
   background: white;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 5px;
-  margin-bottom: 20px;
+  padding: 5px;              /* Increase padding */
+  margin-bottom: 5px;        /* Increase spacing between cards */
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
 .card-header {
-  font-size: 14pt;
+  font-size: 12pt;            /* Larger header font */
   font-weight: bold;
   color: #333;
   background-color: #e9ecef;
-  padding: 5px;
+  padding: 5px;              /* More comfortable padding */
   border-radius: 10px 10px 0 0;
   border-bottom: none;
   width: 100%;
 }
 
 .card-body {
+  /* Remove any fixed heights to let the card expand as needed */
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  height: 100%;
-  flex-direction: column;
+  line-height: 1.4; /* Improves readability */
+  /* height: 100%;   <-- Remove or comment out if present */
 }
 
 #about_card .card-body {
-  font-size: 9pt !important;
+  font-size: 10pt !important; /* Slightly smaller text if you prefer */
   text-align: left !important;
+  /* Make sure overflow is visible or auto so text is not clipped */
+  overflow: visible !important;
 }
-
-
 
 /* Leaflet Map Styling */
 .leaflet-container {
@@ -74,14 +77,14 @@ p {
 
 /* Gauges and Outputs */
 .text-output {
-  font-size: 16pt;
+  font-size: 10pt;
   font-weight: bold;
   color: #555;
   margin-top: 10px;
 }
 
 #sry_recorded, #sfj_recorded {
-  font-size: 12pt;
+  font-size: 10pt;
 }
 
 /* Navbar Styling */
@@ -100,8 +103,8 @@ p {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  padding: 5px 10px;  /* Adjust padding as needed */
-  font-size: 10pt;    /* Or any font size you prefer */
+  padding: 5px 10px;
+  font-size: 10pt;
 }
 
 .left-updated {

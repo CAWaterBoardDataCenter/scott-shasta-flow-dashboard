@@ -17,18 +17,19 @@ library(DT)
 Sys.setenv(R_CONFIG_ACTIVE = "production")
 
 # Load data. ----
-# Station information.
+
+## Station information. ----
 sta_info <- read_csv("data/station-info.csv")
 
-# Minimum instream flow time series.
+## Minimum instream flow lookup tables. ----
 load("data/mif-tables.RData")
 
-# # Load and prepare POD data set. ----
+## Load and prepare POD data set. ----
 
-# Load config data.
+### Load AWS config data.
 config_data <- config::get()
 
-# Set AWS credentials and region as environment variables
+### Set AWS credentials and region as environment variables.
 Sys.setenv(
   "AWS_BUCKET" = config_data$aws$bucket,
   "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
@@ -36,16 +37,25 @@ Sys.setenv(
   "AWS_DEFAULT_REGION" = config_data$aws$region
 )
 
-# Load data.
+### Load data.
 obj <- get_object(
   object = "scott-shasta-monitoring-pods",
   bucket = Sys.getenv("AWS_BUCKET"),
   as = "raw")
 
-# Convert raw object to R readable format.
+### Convert raw object to R readable format.
 raw_conn <- rawConnection(obj)
 load(raw_conn)
 close(raw_conn)
+
+## Load watershed boundaries for the map. ----
+huc8_boundaries <- sf::st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.shp") %>%
+  sf::st_transform('+proj=longlat +datum=WGS84')
+
+## load stream lines for the map. ----
+stream_lines <- sf::st_read("./data/scott-shasta-rivers/scott-shasta-rivers.shp") %>%
+  sf::st_transform('+proj=longlat +datum=WGS84')
+stream_lines <- st_zm(stream_lines)
 
 # Load functions to fetch flow values. ----
 source("cdecFlowQuery.R")
@@ -272,14 +282,15 @@ server <- function(input, output, session) {
   # Render leaflet map. ----
   output$map <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$Esri.WorldTopoMap) %>%
-      #     addTiles() %>%
+      addProviderTiles(providers$Esri.WorldStreetMap, group = "Street Map") %>%
+      addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo Map") %>%
+      addProviderTiles(providers$Esri.WorldImagery, group = "Satellite Map") %>%
 
-      # Add guage points for SFJ and SRY/
+      ## Add gauge points for SFJ and SRY. ----
       addCircleMarkers(group = "cdec-gages",
                        lng = -123.0150,
                        lat = 41.64069,
-                       radius = 10,
+                       radius = 7,
                        color = "blue",
                        fillOpacity = 1,
                        label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
@@ -291,7 +302,7 @@ server <- function(input, output, session) {
       addCircleMarkers(group = "cdec-gages",
                        lng = -122.5956,
                        lat = 41.82292,
-                       radius = 10,
+                       radius = 7,
                        color = "blue",
                        fillOpacity = 1,
                        label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"),
@@ -300,21 +311,43 @@ server <- function(input, output, session) {
                                                    direction = "bottom",
                                                    textsize = "15px")) %>%
 
-      # Add pod_curtailment_status points.
+      ## Add stream lines. ----
+      addPolylines(
+        data = stream_lines,
+        group = "streams",
+        color = "blue",
+        weight = 2.0,
+        opacity = 1.0
+      ) %>%
+
+      ## Add watershed boundaries. ----
+      addPolygons(
+        data = huc8_boundaries,
+        group = "watersheds",
+        color = "black",
+        weight = 1.5,
+        opacity = 1.0,
+        fillOpacity = 0.0,
+        label = ~paste(name, "River Watershed"),
+    #    labelOptions = labelOptions(noHide = TRUE)
+      ) %>%
+
+
+      ## Add POD markers. ----
       addCircleMarkers(
-        group = "pods",
+        group = "PODs",
         data = pods,
         lng = ~lon,
         lat = ~lat,
         popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
-        radius = 6,
+        radius = 5,
         color = ~pal(curtail_status),  # Now correctly mapped
         stroke = TRUE,
-        weight = 1.0,
-        fillOpacity = 0.5
+        weight = 1,
+        fillOpacity = 0.6
       ) %>%
 
-      # Add legend for curtailment status.
+      ## Add legend for curtailment status. ----
       addLegend(
         group = "pods",
         data = pods,
@@ -323,17 +356,21 @@ server <- function(input, output, session) {
         values = ~curtail_status,
         title = "Curtailment Status",
         opacity = 1
+      ) %>%
+
+      ## Layer control. ----
+      addLayersControl(
+        baseGroups = c("Street Map",
+                       "Topo Map",
+                       "Satellite Map"),
+        overlayGroups = c("PODs"),
+        options = layersControlOptions(collapsed = FALSE)
       )
+
+
   })
 
-  # # Render time gauge data was last retrieved.
-  # output$lastUpdated <- renderText({
-  #   paste0("Gauge data last retrieved: ", format(last_update(), "%Y-%m-%d %H:%M:%S"), ".      ",
-  #         "POD curtailment data last updated:", format(prep_date, "%Y-%m-%d")
-  #         )
-  # })
-
-  # Render time gauge data was last retrieved.
+  # Render time gauge data was last retrieved. ----
   output$gaugeLastUpdated <- renderText({
     paste("Gauge data last retrieved:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
   })

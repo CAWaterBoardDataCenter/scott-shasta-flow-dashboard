@@ -12,6 +12,7 @@ library(glue)
 library(stringr)
 library(curl)
 library(DT)
+library(sf)
 
 # Set application state (development or production). ----
 Sys.setenv(R_CONFIG_ACTIVE = "production")

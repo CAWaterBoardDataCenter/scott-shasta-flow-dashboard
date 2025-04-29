@@ -176,7 +176,7 @@ ui <- page_fillable(
       heights_equal = "row",
       g1_card, g2_card
     ),
-    map_card,
+    map_card
   ),
   about_card,
 
@@ -325,11 +325,12 @@ server <- function(input, output, session) {
       addPolygons(
         data = huc8_boundaries,
         group = "watersheds",
-        color = "black",
+        color = NULL,
         weight = 1.5,
         opacity = 1.0,
         fillOpacity = 0.0,
-        label = ~paste(name, "River Watershed"),
+        layerId = "watersheds",
+        label = ~paste(name, "River Watershed")
     #    labelOptions = labelOptions(noHide = TRUE)
       ) %>%
 
@@ -369,6 +370,30 @@ server <- function(input, output, session) {
       )
 
 
+  })
+
+  # Observe base layer changes using the reactive input "input$map_baselayer"
+  observe({
+    req(input$map_baselayer)
+
+    # Choose the polygon border color based on the selected base layer:
+    # White for "Imagery", black for all other cases.
+    new_color <- ifelse(input$map_baselayer == "Satellite Map", "white", "black")
+
+    # Remove the old polygon and re-add it with the updated border color.
+    leafletProxy("map", session) %>%
+      clearGroup("watersheds") %>%
+      addPolygons(
+        data = huc8_boundaries,
+        color = new_color,
+        layerId = "test_polygon",
+        weight = 1.5,
+        opacity = 1.0,
+        fillOpacity = 0.0,
+        layerId = "watersheds",
+        label = ~paste(name, "River Watershed"),
+        group = "watersheds"
+      )
   })
 
   # Render time gauge data was last retrieved. ----

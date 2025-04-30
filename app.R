@@ -367,34 +367,55 @@ server <- function(input, output, session) {
                        "Satellite Map"),
         overlayGroups = c("PODs"),
         options = layersControlOptions(collapsed = FALSE)
-      )
+      ) %>%
+      # Use onRender to attach a JavaScript function that listens for base layer changes.
+      onRender("
+        function(el, x) {
+          var map = this;
+          // Listen for the baselayerchange event.
+          map.on('baselayerchange', function(e) {
+            map.eachLayer(function(layer) {
+              // Identify our polygon by its layerId.
+              if (layer.options && layer.options.layerId === 'watersheds') {
+                // If the user selects the aerial basemap, change polygon outline to white.
+                if (e.name === 'Satellite Map') {
+                  layer.setStyle({color: 'white'});
+                } else {
+                  // Otherwise (topographic), set the outline to black.
+                  layer.setStyle({color: 'blue'});
+                }
+              }
+            });
+          });
+        }
+      ")
 
 
   })
 
-  # Observe base layer changes using the reactive input "input$map_baselayer"
-  observe({
-    req(input$map_baselayer)
-
-    # Choose the polygon border color based on the selected base layer:
-    # White for "Imagery", black for all other cases.
-    new_color <- ifelse(input$map_baselayer == "Satellite Map", "white", "black")
-
-    # Remove the old polygon and re-add it with the updated border color.
-    leafletProxy("map", session) %>%
-      clearGroup("watersheds") %>%
-      addPolygons(
-        data = huc8_boundaries,
-        color = new_color,
-        layerId = "test_polygon",
-        weight = 1.5,
-        opacity = 1.0,
-        fillOpacity = 0.0,
-        layerId = "watersheds",
-        label = ~paste(name, "River Watershed"),
-        group = "watersheds"
-      )
-  })
+  # # Observe base layer changes using the reactive input "input$map_baselayer"
+  # observe({
+  #   req(input$map_baselayer)
+  #
+  #   # Choose the polygon border color based on the selected base layer:
+  #   # White for "Imagery", black for all other cases.
+  #   new_color <- ifelse(input$map_baselayer == "Satellite Map", "white", "black")
+  #
+  #   # Remove the old polygon and re-add it with the updated border color.
+  #   leafletProxy("map", session) %>%
+  #     clearGroup("watersheds") %>%
+  #     addPolygons(
+  #       data = huc8_boundaries,
+  #       color = new_color,
+  #       layerId = "test_polygon",
+  #       weight = 1.5,
+  #       opacity = 1.0,
+  #       fillOpacity = 0.0,
+  #       layerId = "watersheds",
+  #       label = ~paste(name, "River Watershed"),
+  #       group = "watersheds"
+  #     )
+  # })
 
   # Render time gauge data was last retrieved. ----
   output$gaugeLastUpdated <- renderText({

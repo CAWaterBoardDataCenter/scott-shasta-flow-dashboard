@@ -36,7 +36,7 @@ addPolygons(
   weight = 1.5,
   opacity = 1.0,
   fillOpacity = 0.0,
-  layerId = "watersheds",
+ # layerId = "watersheds",
   label = ~paste(name, "River Watershed")
   #    labelOptions = labelOptions(noHide = TRUE)
 )

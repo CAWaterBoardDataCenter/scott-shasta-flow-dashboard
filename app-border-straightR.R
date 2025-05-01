@@ -1,5 +1,11 @@
 library(shiny)
 library(leaflet)
+library(sf)
+
+# Load geojson file from data folder.
+watershedBoundaries <- st_read("scott-shasta-huc8s.geojson")# %>%
+#  st_transform('+proj=longlat +datum=WGS84')
+
 
 ui <- fluidPage(
   # Display the Leaflet map.
@@ -8,34 +14,28 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # Define the coordinates for the square polygon.
-  square_coords <- data.frame(
-    lng = c(-122.446747, -122.446747, -122.436747, -122.436747, -122.446747),
-    lat = c(37.773972, 37.763972, 37.763972, 37.773972, 37.773972)
-  )
+
 
   # Render the initial map.
   output$map <- renderLeaflet({
     leaflet() %>%
-      # Set the initial view.
-      setView(lng = -122.441747, lat = 37.768972, zoom = 14) %>%
-      # Add the topographic base map (OpenTopoMap) and the aerial base map (Esri World Imagery).
-      addProviderTiles(providers$OpenTopoMap, group = "Topographic") %>%
+
+      # Add provider tiles for different basemaps.
+      addProviderTiles(providers$Esri.WorldStreetMap, group = "Street") %>%
+      addProviderTiles(providers$Esri.WorldTopoMap, group = "Topographic") %>%
       addProviderTiles(providers$Esri.WorldImagery, group = "Aerial") %>%
-      # Add the square polygon with initial styling for the topographic basemap.
-      # We assign it to group "polygonGroup" to facilitate later updates.
+
+      # Add watershed boundary polygons.
       addPolygons(
-        data = square_coords,
-        lng = ~lng,
-        lat = ~lat,
+        data = watershedBoundaries,
         color = "black",  # Black outline for the topographic view.
         weight = 2,
         fill = FALSE,
-        group = "polygonGroup",
-        layerId = "poly"
-      ) %>%
+        group = "watershedGroup"
+       ) %>%
       # Enable layer control to allow switching between basemaps.
       addLayersControl(
-        baseGroups = c("Topographic", "Aerial"),
+        baseGroups = c("Topographic", "Aerial", "Street"),
         options = layersControlOptions(collapsed = FALSE)
       )
   })
@@ -48,19 +48,17 @@ server <- function(input, output, session) {
 
     # Update the polygon by clearing the previous one and then re-adding it with the new style.
     leafletProxy("map", session) %>%
-      clearGroup("polygonGroup") %>%
+      clearGroup("watershedGroup") %>%
       addPolygons(
-        data = square_coords,
-        lng = ~lng,
-        lat = ~lat,
+        data = watershedBoundaries,
         color = polygonColor,
         weight = 2,
         fill = FALSE,
-        group = "polygonGroup",
-        layerId = "poly"
+        group = "watershedGroup"
       )
   })
-}
+
+  }
 
 # Run the Shiny app.
 shinyApp(ui, server)

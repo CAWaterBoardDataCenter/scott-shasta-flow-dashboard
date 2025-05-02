@@ -30,7 +30,7 @@ server <- function(input, output, session) {
         lng = square_coords$lng,
         lat = square_coords$lat,
         layerId = "poly",   # an ID to easily reference the polygon layer later
-        color = "black",    # black outline for the topographic map
+        color = "yellow",    # yellow outline for the topographic map
         weight = 2,
         fill = FALSE        # no fill
       ) %>%
@@ -53,7 +53,7 @@ server <- function(input, output, session) {
                   layer.setStyle({color: 'white'});
                 } else {
                   // Otherwise (topographic), set the outline to black.
-                  layer.setStyle({color: 'black'});
+                  layer.setStyle({color: 'yellow'});
                 }
               }
             });

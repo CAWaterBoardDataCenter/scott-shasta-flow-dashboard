@@ -1,6 +1,7 @@
 library(aws.s3)
 library(shiny)
 library(flexdashboard)
+library(htmlwidgets)
 library(bslib)
 library(leaflet)
 library(dplyr)

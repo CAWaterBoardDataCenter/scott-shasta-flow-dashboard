@@ -4,7 +4,7 @@ library(leaflet)
 library(sf)
 
 # Load geojson file from data folder.
-st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.geojson") %>%
+watershedBoundaries <- st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.geojson") %>%
   st_transform('+proj=longlat +datum=WGS84')
 
 ui <- fluidPage(

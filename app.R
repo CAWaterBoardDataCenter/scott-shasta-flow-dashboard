@@ -51,13 +51,36 @@ load(raw_conn)
 close(raw_conn)
 
 ## Load watershed boundaries for the map. ----
-huc8_boundaries <- sf::st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.shp") %>%
+watershedBoundaries <- sf::st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.shp") %>%
   sf::st_transform('+proj=longlat +datum=WGS84')
 
 ## load stream lines for the map. ----
 stream_lines <- sf::st_read("./data/scott-shasta-rivers/scott-shasta-rivers.shp") %>%
   sf::st_transform('+proj=longlat +datum=WGS84')
 stream_lines <- st_zm(stream_lines)
+
+## Define and load functions. ----
+
+# Gauge max rounding function.
+roundUpAuto <- function(x) {
+  # only positive integers ≥1
+  if (any(x < 1 | x %% 1 != 0, na.rm = TRUE)) {
+    stop("`x` must be integer values ≥ 1")
+  }
+
+  vapply(
+    x,
+    FUN = function(xi) {
+      if (xi < 10) {
+        return(10)
+      }
+      e    <- floor(log10(xi))   # highest exponent so 10^e ≤ xi
+      base <- 10^e
+      base * ceiling(xi / base)
+    },
+    FUN.VALUE = numeric(1)
+  )
+}
 
 # Load functions to fetch flow values. ----
 source("cdecFlowQuery.R")
@@ -226,10 +249,10 @@ server <- function(input, output, session) {
 
     gauge(
       value = data$Value,
-      min = 0, max = ceiling(data$Value / 100) * 100,
+      min = 0, max = roundUpAuto(data$Value),
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(mifs_today$sfj_limits$success_lo, ceiling(data$Value / 100) * 100),
+      sectors = gaugeSectors(success = c(mifs_today$sfj_limits$success_lo, roundUpAuto(data$Value)),
                              warning = c(mifs_today$sfj_limits$warning_lo, mifs_today$sfj_limits$warning_hi),
                              danger = c(0,mifs_today$sfj_limits$danger_hi)
       )
@@ -258,10 +281,10 @@ server <- function(input, output, session) {
 
     gauge(
       value = data$Value,
-      min = 0, max = 1000,
+      min = 0, roundUpAuto(data$Value),
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(mifs_today$sry_limits$success_lo, ceiling(data$Value / 100) * 100),
+      sectors = gaugeSectors(success = c(mifs_today$sry_limits$success_lo, roundUpAuto(data$Value)),
                              warning = c(mifs_today$sry_limits$warning_lo, mifs_today$sry_limits$warning_hi),
                              danger = c(0,mifs_today$sry_limits$danger_hi)
       )
@@ -284,9 +307,13 @@ server <- function(input, output, session) {
   # Render leaflet map. ----
   output$map <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$Esri.WorldStreetMap, group = "Street Map") %>%
-      addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo Map") %>%
-      addProviderTiles(providers$Esri.WorldImagery, group = "Satellite Map") %>%
+      addProviderTiles(providers$Esri.WorldStreetMap, group = "Street") %>%
+      addProviderTiles(providers$Esri.WorldTopoMap, group = "Topographic") %>%
+      addProviderTiles(providers$Esri.WorldImagery, group = "Aerial") %>%
+      addLayersControl(
+        baseGroups = c("Street", "Topographic", "Aerial"),
+        options = layersControlOptions(collapsed = FALSE)
+      ) %>%
 
       ## Add gauge points for SFJ and SRY. ----
       addCircleMarkers(group = "cdec-gages",
@@ -313,29 +340,6 @@ server <- function(input, output, session) {
                                                    direction = "bottom",
                                                    textsize = "15px")) %>%
 
-      ## Add stream lines. ----
-      addPolylines(
-        data = stream_lines,
-        group = "streams",
-        color = "blue",
-        weight = 2.0,
-        opacity = 1.0
-      ) %>%
-
-      ## Add watershed boundaries. ----
-      addPolygons(
-        data = huc8_boundaries,
-        group = "watersheds",
-        color = NULL,
-        weight = 1.5,
-        opacity = 1.0,
-        fillOpacity = 0.0,
-        layerId = "watersheds",
-        label = ~paste(name, "River Watershed")
-    #    labelOptions = labelOptions(noHide = TRUE)
-      ) %>%
-
-
       ## Add POD markers. ----
       addCircleMarkers(
         group = "PODs",
@@ -343,12 +347,21 @@ server <- function(input, output, session) {
         lng = ~lon,
         lat = ~lat,
         popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
-        radius = 5,
+        radius = 4,
         color = ~pal(curtail_status),  # Now correctly mapped
         stroke = TRUE,
         weight = 1,
         fillOpacity = 0.6
       ) %>%
+
+      ## Add stream lines. ----
+    addPolylines(
+      data = stream_lines,
+      group = "streams",
+      color = "blue",
+      weight = 2.0,
+      opacity = 1.0
+    ) %>%
 
       ## Add legend for curtailment status. ----
       addLegend(
@@ -359,64 +372,25 @@ server <- function(input, output, session) {
         values = ~curtail_status,
         title = "Curtailment Status",
         opacity = 1
-      ) %>%
+      )
+})
 
-      ## Layer control. ----
-      addLayersControl(
-        baseGroups = c("Street Map",
-                       "Topo Map",
-                       "Satellite Map"),
-        overlayGroups = c("PODs"),
-        options = layersControlOptions(collapsed = FALSE)
-      ) %>%
-      # Use onRender to attach a JavaScript function that listens for base layer changes.
-      onRender("
-        function(el, x) {
-          var map = this;
-          // Listen for the baselayerchange event.
-          map.on('baselayerchange', function(e) {
-            map.eachLayer(function(layer) {
-              // Identify our polygon by its layerId.
-              if (layer.options && layer.options.layerId === 'watersheds') {
-                // If the user selects the aerial basemap, change polygon outline to white.
-                if (e.name === 'Satellite Map') {
-                  layer.setStyle({color: 'white'});
-                } else {
-                  // Otherwise (topographic), set the outline to black.
-                  layer.setStyle({color: 'blue'});
-                }
-              }
-            });
-          });
-        }
-      ")
+  # Observe for change in base map choice and update watershed boundary color.
+  observe({
+    req(input$map_groups)
 
+    color <- if ("Aerial" %in% input$map_groups) "white" else "black"
 
+    leafletProxy("map") %>%
+      clearGroup("watershedGroup") %>%
+      addPolygons(
+        data = watershedBoundaries,
+        color = color,
+        weight = 2,
+        fill = FALSE,
+        group = "watershedGroup"
+      )
   })
-
-  # # Observe base layer changes using the reactive input "input$map_baselayer"
-  # observe({
-  #   req(input$map_baselayer)
-  #
-  #   # Choose the polygon border color based on the selected base layer:
-  #   # White for "Imagery", black for all other cases.
-  #   new_color <- ifelse(input$map_baselayer == "Satellite Map", "white", "black")
-  #
-  #   # Remove the old polygon and re-add it with the updated border color.
-  #   leafletProxy("map", session) %>%
-  #     clearGroup("watersheds") %>%
-  #     addPolygons(
-  #       data = huc8_boundaries,
-  #       color = new_color,
-  #       layerId = "test_polygon",
-  #       weight = 1.5,
-  #       opacity = 1.0,
-  #       fillOpacity = 0.0,
-  #       layerId = "watersheds",
-  #       label = ~paste(name, "River Watershed"),
-  #       group = "watersheds"
-  #     )
-  # })
 
   # Render time gauge data was last retrieved. ----
   output$gaugeLastUpdated <- renderText({

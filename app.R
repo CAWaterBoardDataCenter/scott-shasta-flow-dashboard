@@ -1,4 +1,6 @@
+# 1. Load libraries. ----
 library(aws.s3)
+library(config)
 library(shiny)
 library(flexdashboard)
 library(htmlwidgets)
@@ -15,10 +17,19 @@ library(curl)
 library(DT)
 library(sf)
 
-# Set application state (development or production). ----
+# 2. Set application state for AWS (development or production). ----
 Sys.setenv(R_CONFIG_ACTIVE = "production")
 
-# Load data. ----
+## Read AWS config data from config.yml.
+config_data <- config::get()
+
+## Set AWS credentials and region as environment variables.
+Sys.setenv("AWS_BUCKET" = config_data$aws$bucket,
+           "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
+           "AWS_SECRET_ACCESS_KEY" = config_data$aws$secret_key,
+           "AWS_DEFAULT_REGION" = config_data$aws$region)
+
+# 3. Load data. ----
 
 ## Station information. ----
 sta_info <- read_csv("data/station-info.csv")
@@ -26,18 +37,7 @@ sta_info <- read_csv("data/station-info.csv")
 ## Minimum instream flow lookup tables. ----
 load("data/mif-tables.RData")
 
-## Load and prepare POD data set. ----
-
-### Load AWS config data.
-config_data <- config::get()
-
-### Set AWS credentials and region as environment variables.
-Sys.setenv(
-  "AWS_BUCKET" = config_data$aws$bucket,
-  "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
-  "AWS_SECRET_ACCESS_KEY" = config_data$aws$secret_key,
-  "AWS_DEFAULT_REGION" = config_data$aws$region
-)
+## Load POD data. ----
 
 ### Load data.
 obj <- get_object(
@@ -59,9 +59,12 @@ stream_lines <- sf::st_read("./data/scott-shasta-rivers/scott-shasta-rivers.shp"
   sf::st_transform('+proj=longlat +datum=WGS84')
 stream_lines <- st_zm(stream_lines)
 
-## Define and load functions. ----
+# 4. Define and load support functions. ----
 
-# Gauge max rounding function.
+## Load functions to fetch flow values from CDEC. ----
+source("cdecFlowQuery.R")
+
+## Gauge max rounding function. ----
 roundUpAuto <- function(x) {
   # only positive integers ≥1
   if (any(x < 1 | x %% 1 != 0, na.rm = TRUE)) {
@@ -82,10 +85,7 @@ roundUpAuto <- function(x) {
   )
 }
 
-# Load functions to fetch flow values. ----
-source("cdecFlowQuery.R")
-
-# Pull today's mimumum instream flow values. ----
+# 5. Pull today's minimum instream flow values. ----
 
 sameMonthDay <- function(date1, date2) {
   # Convert the strings to date objects
@@ -114,9 +114,9 @@ pods <- pods %>%
 # Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red.
 pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
 
-# Define cards. ----
+# 6. Define cards. ----
 
-## Define Gauge 1 card. ----
+## Gauge 1 card. ----
 g1_card <- card(
   card_header(HTML("Scott R. at Fort Jones (SFJ)")),
   card_body(
@@ -126,7 +126,7 @@ g1_card <- card(
   )
 )
 
-## Define Gauge 2 card. ----
+## Gauge 2 card. ----
 g2_card <- card(
   card_header(HTML("Shasta R. at Yreka (SRY)")),
   card_body(
@@ -136,7 +136,7 @@ g2_card <- card(
   )
 )
 
-## Define Map card. ----
+## Map card. ----
 map_card <- card(
   full_screen = TRUE,
   card_header("Point of Diversion Curtailment Status Map"),
@@ -145,11 +145,11 @@ map_card <- card(
   )
 )
 
-## Define About card. ----
+## About card. ----
 about_card <- card(
- #  height = "10vh",
- # fillable = TRUE,
- # fill = TRUE,
+  #  height = "10vh",
+  # fillable = TRUE,
+  # fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
     div(class = "card-body",
@@ -173,7 +173,7 @@ about_card <- card(
 )
 
 
-# Define UI. --------
+# 7. Define UI. --------
 
 ui <- page_fillable(
   theme = bslib::bs_theme(preset = "litera"),
@@ -212,7 +212,7 @@ ui <- page_fillable(
 
 )
 
-# Define Server. ----
+# 8. Define Server. ----
 server <- function(input, output, session) {
 
   # Reactive values to store data and update time
@@ -316,18 +316,18 @@ server <- function(input, output, session) {
       ) %>%
 
       ## Add gauge points for SFJ and SRY. ----
-      addCircleMarkers(group = "cdec-gages",
-                       lng = -123.0150,
-                       lat = 41.64069,
-                       radius = 7,
-                       color = "blue",
-                       fillOpacity = 1,
-                       label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
-                       labelOptions = labelOptions(noHide = TRUE,
-                                                   interactive = TRUE,
-                                                   direction = "bottom",
-                                                   textsize = "15px")
-      ) %>%
+    addCircleMarkers(group = "cdec-gages",
+                     lng = -123.0150,
+                     lat = 41.64069,
+                     radius = 7,
+                     color = "blue",
+                     fillOpacity = 1,
+                     label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
+                     labelOptions = labelOptions(noHide = TRUE,
+                                                 interactive = TRUE,
+                                                 direction = "bottom",
+                                                 textsize = "15px")
+    ) %>%
       addCircleMarkers(group = "cdec-gages",
                        lng = -122.5956,
                        lat = 41.82292,
@@ -341,18 +341,18 @@ server <- function(input, output, session) {
                                                    textsize = "15px")) %>%
 
       ## Add POD markers. ----
-      addCircleMarkers(
-        group = "PODs",
-        data = pods,
-        lng = ~lon,
-        lat = ~lat,
-        popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
-        radius = 4,
-        color = ~pal(curtail_status),  # Now correctly mapped
-        stroke = TRUE,
-        weight = 1,
-        fillOpacity = 0.6
-      ) %>%
+    addCircleMarkers(
+      group = "PODs",
+      data = pods,
+      lng = ~lon,
+      lat = ~lat,
+      popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
+      radius = 4,
+      color = ~pal(curtail_status),  # Now correctly mapped
+      stroke = TRUE,
+      weight = 1,
+      fillOpacity = 0.6
+    ) %>%
 
       ## Add stream lines. ----
     addPolylines(
@@ -364,16 +364,16 @@ server <- function(input, output, session) {
     ) %>%
 
       ## Add legend for curtailment status. ----
-      addLegend(
-        group = "pods",
-        data = pods,
-        position = "bottomright",
-        pal = pal,
-        values = ~curtail_status,
-        title = "Curtailment Status",
-        opacity = 1
-      )
-})
+    addLegend(
+      group = "pods",
+      data = pods,
+      position = "bottomright",
+      pal = pal,
+      values = ~curtail_status,
+      title = "Curtailment Status",
+      opacity = 1
+    )
+  })
 
   # Observe for change in base map choice and update watershed boundary color.
   observe({
@@ -412,5 +412,5 @@ server <- function(input, output, session) {
 
 }
 
-# Run App
+# 9. Run App. ----
 shinyApp(ui, server)

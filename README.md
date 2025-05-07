@@ -26,7 +26,7 @@ This Shiny web application provides real-time monitoring of stream flow and wate
 -   `app.R` – Main Shiny application
 -   `cdecFlowQuery.R` – Helper script to query CDEC
 -   `data/` – Contains shapefiles, MIF lookup tables, and station metadata
--   `style.css` – Custom CSS for styling the app
+-   `www/` – Custom CSS styling, image files
 
 ## Deployment
 

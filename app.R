@@ -50,6 +50,15 @@ raw_conn <- rawConnection(obj)
 load(raw_conn)
 close(raw_conn)
 
+### Map POD plot color to Curtailment Status.
+pods <- pods %>%
+mutate(color = case_when(
+    curtail_status == "Not Curtailed" ~ "green",
+    curtail_status == "Conditionally Curtailed" ~ "yellow",
+    curtail_status == "Curtailed" ~ "red",
+    TRUE ~ "gray"
+  ))
+
 ## Load watershed boundaries for the map. ----
 watershedBoundaries <- sf::st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.shp") %>%
   sf::st_transform('+proj=longlat +datum=WGS84')
@@ -100,19 +109,6 @@ mifs_today <- map(mifs, ~
                     filter(.x, map_lgl(day_month,
                                        ~ sameMonthDay(.x, Sys.Date())))
 )
-
-# Define expected order of curtailment statuses.
-expected_levels <- c("Not Curtailed", "Curtailed")
-
-# Extract actual levels present in the dataset while preserving expected order
-actual_levels <- expected_levels[expected_levels %in% unique(pods$curtail_status)]
-
-# Convert to factor using expected order to maintain color consistency.
-pods <- pods %>%
-  mutate(curtail_status = factor(curtail_status, levels = expected_levels))
-
-# Create a color palette ensuring "Not Curtailed" is green & "Curtailed" is red.
-pal <- colorFactor(palette = c("red", "green"), domain = expected_levels)
 
 # 6. Define cards. ----
 
@@ -172,7 +168,7 @@ about_card <- card(
   )
 )
 
-
+#
 # 7. Define UI. --------
 
 ui <- page_fillable(
@@ -304,6 +300,7 @@ server <- function(input, output, session) {
     paste("Minimum Instream Flow:", mifs_today$sry_limits$mif, "cfs")
   })
 
+  #
   # Render leaflet map. ----
   output$map <- renderLeaflet({
     leaflet() %>%
@@ -346,12 +343,12 @@ server <- function(input, output, session) {
       data = pods,
       lng = ~lon,
       lat = ~lat,
-      popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status),
       radius = 4,
-      color = ~pal(curtail_status),  # Now correctly mapped
+      color = ~color,
       stroke = TRUE,
       weight = 1,
-      fillOpacity = 0.6
+      fillOpacity = 0.6,
+      popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status)
     ) %>%
 
       ## Add stream lines. ----
@@ -365,11 +362,9 @@ server <- function(input, output, session) {
 
       ## Add legend for curtailment status. ----
     addLegend(
-      group = "pods",
-      data = pods,
       position = "bottomright",
-      pal = pal,
-      values = ~curtail_status,
+      colors = c("green", "yellow", "red"),
+      labels = c("Not Curtailed", "Conditionally Curtailed", "Curtailed"),
       title = "Curtailment Status",
       opacity = 1
     )

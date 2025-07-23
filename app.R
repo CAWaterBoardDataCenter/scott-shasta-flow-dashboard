@@ -52,7 +52,7 @@ close(raw_conn)
 
 ### Map POD plot color to Curtailment Status.
 pods <- pods %>%
-mutate(color = case_when(
+  mutate(color = case_when(
     curtail_status == "Not Curtailed" ~ "green",
     curtail_status == "Conditionally Curtailed" ~ "yellow",
     curtail_status == "Curtailed" ~ "red",

@@ -75,10 +75,10 @@ source("cdecFlowQuery.R")
 
 ## Gauge max rounding function. ----
 roundUpAuto <- function(x) {
-  # only positive integers ≥1
-  if (any(x < 1 | x %% 1 != 0, na.rm = TRUE)) {
-    stop("`x` must be integer values ≥ 1")
-  }
+  # # only positive integers ≥1
+  # if (any(x < 1 | x %% 1 != 0, na.rm = TRUE)) {
+  #   stop("`x` must be integer values ≥ 1")
+  # }
 
   vapply(
     x,
@@ -236,6 +236,8 @@ server <- function(input, output, session) {
     update_data()
   })
 
+  #
+  #
   # Render SFJ gauge. ----
   output$gauge_sfj <- renderGauge({
     req(flow_data())

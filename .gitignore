@@ -41,7 +41,7 @@ app.Renviron
 # AWS keys
 config.yml
 
-# gis folder
+# other
 dashboard-gis
-
+presentation
 old

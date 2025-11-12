@@ -45,3 +45,5 @@ config.yml
 dashboard-gis
 presentation
 old
+aws-data
+pods.RData

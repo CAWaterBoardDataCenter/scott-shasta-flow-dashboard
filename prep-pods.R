@@ -3,7 +3,7 @@ library(dplyr)
 library(readxl)
 library(aws.s3)
 
-save_s3 <- FALSE
+save_s3 <- TRUE
 
 # Set application state (development or production). ----
 Sys.setenv(R_CONFIG_ACTIVE = "production")
@@ -19,10 +19,17 @@ Sys.setenv(
   "AWS_DEFAULT_REGION" = config_data$aws$region
 )
 
-# Load data sets.
-scott <- read_xlsx("./aws-data/ScottPBI.xlsx") %>%
+# Load curtailment status data sets.
+scott <- list.files("./aws-data", pattern = "^ScottPBI-\\d{8}\\.xlsx$", full.names = TRUE) %>%
+  sort() %>%
+  last() %>%
+  read_xlsx() %>%
   rename(`Application Number` = `Application Number/Diversion Number`)
-shasta <- read_xlsx("./aws-data/ShastaPBI.xlsx")
+
+shasta <- list.files("./aws-data", pattern = "^ShastaPBI-\\d{8}\\.xlsx$", full.names = TRUE) %>%
+  sort() %>%
+  last() %>%
+  read_xlsx()
 
 # Find the common column names between the two data frames
 common_cols <- intersect(names(scott), names(shasta))
@@ -50,7 +57,7 @@ if (save_s3) {
 res <-   put_object(
     file = "pods.RData",
     object = "scott-shasta-monitoring-pods",
-    bucket = "dwr-shiny-apps"
+    bucket = config_data$aws$bucket
   )
 }
 

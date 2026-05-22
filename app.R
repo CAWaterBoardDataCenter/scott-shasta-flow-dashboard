@@ -1,6 +1,5 @@
 # 1. Load libraries. ----
 library(aws.s3)
-library(config)
 library(shiny)
 library(flexdashboard)
 library(htmlwidgets)
@@ -161,7 +160,7 @@ about_card <- card(
           ),
           tags$li(
             "Link to Shasta River Curtailment Webpage: ",
-            tags$a(href = "https://waterboards.ca.gov", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")
+            tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/shasta_2024addendums.html", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")
           )
         )
     )

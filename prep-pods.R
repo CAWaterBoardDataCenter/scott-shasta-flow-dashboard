@@ -20,13 +20,21 @@ Sys.setenv(
 )
 
 # Load curtailment status data sets.
-scott <- list.files("./aws-data", pattern = "^ScottPBI-\\d{8}\\.xlsx$", full.names = TRUE) %>%
+scott <- list.files(
+  "./aws-data",
+  pattern = "^ScottPBI-\\d{8}\\.xlsx$",
+  full.names = TRUE
+) %>%
   sort() %>%
   last() %>%
   read_xlsx() %>%
   rename(`Application Number` = `Application Number/Diversion Number`)
 
-shasta <- list.files("./aws-data", pattern = "^ShastaPBI-\\d{8}\\.xlsx$", full.names = TRUE) %>%
+shasta <- list.files(
+  "./aws-data",
+  pattern = "^ShastaPBI-\\d{8}\\.xlsx$",
+  full.names = TRUE
+) %>%
   sort() %>%
   last() %>%
   read_xlsx()
@@ -39,11 +47,13 @@ pods <- bind_rows(
   scott %>% select(all_of(common_cols)),
   shasta %>% select(all_of(common_cols))
 ) %>%
-  select(wr_id = `Application Number`,
-         owner = `Primary Owner`,
-         lat = Latitude,
-         lon = Longitude,
-         curtail_status = `Curtailment Status`) %>%
+  select(
+    wr_id = `Application Number`,
+    owner = `Primary Owner`,
+    lat = Latitude,
+    lon = Longitude,
+    curtail_status = `Curtailment Status`
+  ) %>%
   mutate(curtail_status = trimws(as.character(curtail_status)))
 
 # Get the current date and time.
@@ -54,10 +64,9 @@ save(pods, prep_date, file = "pods.RData")
 
 if (save_s3) {
   # Upload the .RData file to "dwr-shiny-apps" AWS S3 bucket.
-res <-   put_object(
+  res <- put_object(
     file = "pods.RData",
     object = "scott-shasta-monitoring-pods",
     bucket = config_data$aws$bucket
   )
 }
-

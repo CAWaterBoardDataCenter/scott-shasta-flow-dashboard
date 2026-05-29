@@ -1,12 +1,13 @@
 library(tidyr)
 library(dplyr)
 library(readxl)
+library(yaml)
 library(aws.s3)
 
 save_s3 <- TRUE
 
 # Set application state (development or production). ----
-Sys.setenv(R_CONFIG_ACTIVE = "production")
+Sys.setenv(R_CONFIG_ACTIVE = "development")
 
 # Load AWS S3 credentials.
 config_data <- config::get()
@@ -19,25 +20,34 @@ Sys.setenv(
   "AWS_DEFAULT_REGION" = config_data$aws$region
 )
 
-# Load curtailment status data sets.
-scott <- list.files(
-  "./aws-data",
-  pattern = "^ScottPBI-\\d{8}\\.xlsx$",
-  full.names = TRUE
-) %>%
-  sort() %>%
-  last() %>%
-  read_xlsx() %>%
-  rename(`Application Number` = `Application Number/Diversion Number`)
+# Load PBI data sets based on curtailment status.
+pbi_status <- yaml::read_yaml("config.yml")$status
 
-shasta <- list.files(
-  "./aws-data",
-  pattern = "^ShastaPBI-\\d{8}\\.xlsx$",
-  full.names = TRUE
-) %>%
-  sort() %>%
-  last() %>%
-  read_xlsx()
+if (pbi_status == "default") {
+  scott <- read_xlsx("./aws-data/ScottPBI-default.xlsx") %>%
+    rename(`Application Number` = `Application Number/Diversion Number`)
+
+  shasta <- read_xlsx("./aws-data/ShastaPBI-default.xlsx")
+} else if (pbi_status == "curtailed") {
+  scott <- list.files(
+    "./aws-data",
+    pattern = "^ScottPBI-\\d{8}\\.xlsx$",
+    full.names = TRUE
+  ) %>%
+    sort() %>%
+    last() %>%
+    read_xlsx() %>%
+    rename(`Application Number` = `Application Number/Diversion Number`)
+
+  shasta <- list.files(
+    "./aws-data",
+    pattern = "^ShastaPBI-\\d{8}\\.xlsx$",
+    full.names = TRUE
+  ) %>%
+    sort() %>%
+    last() %>%
+    read_xlsx()
+}
 
 # Find the common column names between the two data frames
 common_cols <- intersect(names(scott), names(shasta))

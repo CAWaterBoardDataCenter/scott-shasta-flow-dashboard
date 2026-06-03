@@ -17,16 +17,18 @@ library(DT)
 library(sf)
 
 # 2. Set application state for AWS (development or production). ----
-Sys.setenv(R_CONFIG_ACTIVE = "production")
+Sys.setenv(R_CONFIG_ACTIVE = "default")
 
 ## Read AWS config data from config.yml.
 config_data <- config::get()
 
 ## Set AWS credentials and region as environment variables.
-Sys.setenv("AWS_BUCKET" = config_data$aws$bucket,
-           "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
-           "AWS_SECRET_ACCESS_KEY" = config_data$aws$secret_key,
-           "AWS_DEFAULT_REGION" = config_data$aws$region)
+Sys.setenv(
+  "AWS_BUCKET" = config_data$aws$bucket,
+  "AWS_ACCESS_KEY_ID" = config_data$aws$access_key,
+  "AWS_SECRET_ACCESS_KEY" = config_data$aws$secret_key,
+  "AWS_DEFAULT_REGION" = config_data$aws$region
+)
 
 # 3. Load data. ----
 
@@ -42,7 +44,8 @@ load("data/mif-tables.RData")
 obj <- get_object(
   object = "scott-shasta-monitoring-pods",
   bucket = Sys.getenv("AWS_BUCKET"),
-  as = "raw")
+  as = "raw"
+)
 
 ### Convert raw object to R readable format.
 raw_conn <- rawConnection(obj)
@@ -51,19 +54,26 @@ close(raw_conn)
 
 ### Map POD plot color to Curtailment Status.
 pods <- pods %>%
-  mutate(color = case_when(
-    curtail_status == "Not Curtailed" ~ "green",
-    curtail_status == "Conditionally Curtailed" ~ "yellow",
-    curtail_status == "Curtailed" ~ "red",
-    TRUE ~ "gray"
-  ))
+  mutate(
+    color = case_when(
+      curtail_status == "Not Curtailed" ~ "green",
+      curtail_status == "Conditionally Suspended" ~ "cyan",
+      curtail_status == "Conditionally Curtailed" ~ "yellow",
+      curtail_status == "Curtailed" ~ "red",
+      TRUE ~ "gray"
+    )
+  )
 
 ## Load watershed boundaries for the map. ----
-watershedBoundaries <- sf::st_read("./data/scott-shasta-huc8s/scott-shasta-huc8s.shp") %>%
+watershedBoundaries <- sf::st_read(
+  "./data/scott-shasta-huc8s/scott-shasta-huc8s.shp"
+) %>%
   sf::st_transform('+proj=longlat +datum=WGS84')
 
 ## load stream lines for the map. ----
-stream_lines <- sf::st_read("./data/scott-shasta-rivers/scott-shasta-rivers.shp") %>%
+stream_lines <- sf::st_read(
+  "./data/scott-shasta-rivers/scott-shasta-rivers.shp"
+) %>%
   sf::st_transform('+proj=longlat +datum=WGS84')
 stream_lines <- st_zm(stream_lines)
 
@@ -85,7 +95,7 @@ roundUpAuto <- function(x) {
       if (xi < 10) {
         return(10)
       }
-      e    <- floor(log10(xi))   # highest exponent so 10^e ≤ xi
+      e <- floor(log10(xi)) # highest exponent so 10^e ≤ xi
       base <- 10^e
       base * ceiling(xi / base)
     },
@@ -104,9 +114,9 @@ sameMonthDay <- function(date1, date2) {
   identical(month(d1), month(d2)) && identical(day(d1), day(d2))
 }
 
-mifs_today <- map(mifs, ~
-                    filter(.x, map_lgl(day_month,
-                                       ~ sameMonthDay(.x, Sys.Date())))
+mifs_today <- map(
+  mifs,
+  ~ filter(.x, map_lgl(day_month, ~ sameMonthDay(.x, Sys.Date())))
 )
 
 # 6. Define cards. ----
@@ -147,22 +157,38 @@ about_card <- card(
   # fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
-    div(class = "card-body",
-        p("This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is retrieved from the Dept. of Water Resources' ",
-          tags$a(href = "https://cdec.water.ca.gov/", "California Data Exchange Center (CDEC)", target = "_blank"),
-          " at 15-minute intervals. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."),
-        tags$ul(
-
-          tags$li("Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."),
-          tags$li(
-            "Link to Scott River Curtailment Webpage: ",
-            tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/scott_2024addendums.html", "Scott River Watershed Curtailment Orders and Addendums", target = "_blank")
-          ),
-          tags$li(
-            "Link to Shasta River Curtailment Webpage: ",
-            tags$a(href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/shasta_2024addendums.html", "Shasta River Watershed Curtailment Orders and Addendums", target = "_blank")
+    div(
+      class = "card-body",
+      p(
+        "This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is retrieved from the Dept. of Water Resources' ",
+        tags$a(
+          href = "https://cdec.water.ca.gov/",
+          "California Data Exchange Center (CDEC)",
+          target = "_blank"
+        ),
+        " at 15-minute intervals. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."
+      ),
+      tags$ul(
+        tags$li(
+          "Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."
+        ),
+        tags$li(
+          "Link to Scott River Curtailment Webpage: ",
+          tags$a(
+            href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/scott_2024addendums.html",
+            "Scott River Watershed Curtailment Orders and Addendums",
+            target = "_blank"
+          )
+        ),
+        tags$li(
+          "Link to Shasta River Curtailment Webpage: ",
+          tags$a(
+            href = "https://www.waterboards.ca.gov/drought/scott_shasta_rivers/shasta_2024addendums.html",
+            "Shasta River Watershed Curtailment Orders and Addendums",
+            target = "_blank"
           )
         )
+      )
     )
   )
 )
@@ -193,23 +219,23 @@ ui <- page_fillable(
     layout_column_wrap(
       width = 1,
       heights_equal = "row",
-      g1_card, g2_card
+      g1_card,
+      g2_card
     ),
     map_card
   ),
   about_card,
 
   # Last updated text.
-  div(class = "last-updated-container",
-      div(class = "left-updated", textOutput("gaugeLastUpdated")),
-      div(class = "right-updated", textOutput("podLastUpdated"))
+  div(
+    class = "last-updated-container",
+    div(class = "left-updated", textOutput("gaugeLastUpdated")),
+    div(class = "right-updated", textOutput("podLastUpdated"))
   )
-
 )
 
 # 8. Define Server. ----
 server <- function(input, output, session) {
-
   # Reactive values to store data and update time
   flow_data <- reactiveVal(NULL)
   last_update <- reactiveVal(Sys.time())
@@ -217,10 +243,13 @@ server <- function(input, output, session) {
   # Function to update data
   update_data <- function() {
     new_data <- sta_info[, 1:3] %>%
-      pmap_dfr(., cdecFlowQuery)  %>%
+      pmap_dfr(., cdecFlowQuery) %>%
       mutate(
         Date = as.Date(DateTime, tz = "America/Los_Angeles"),
-        Time = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S")
+        Time = format(
+          as.POSIXct(DateTime, tz = "America/Los_Angeles"),
+          "%H:%M:%S"
+        )
       ) %>%
 
       mutate(Value = as.numeric(Value))
@@ -246,12 +275,17 @@ server <- function(input, output, session) {
 
     gauge(
       value = data$Value,
-      min = 0, max = roundUpAuto(data$Value),
+      min = 0,
+      max = roundUpAuto(data$Value),
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(mifs_today$sfj_limits$success_lo, roundUpAuto(data$Value)),
-                             warning = c(mifs_today$sfj_limits$warning_lo, mifs_today$sfj_limits$warning_hi),
-                             danger = c(0,mifs_today$sfj_limits$danger_hi)
+      sectors = gaugeSectors(
+        success = c(mifs_today$sfj_limits$success_lo, roundUpAuto(data$Value)),
+        warning = c(
+          mifs_today$sfj_limits$warning_lo,
+          mifs_today$sfj_limits$warning_hi
+        ),
+        danger = c(0, mifs_today$sfj_limits$danger_hi)
       )
     )
   })
@@ -278,12 +312,17 @@ server <- function(input, output, session) {
 
     gauge(
       value = data$Value,
-      min = 0, roundUpAuto(data$Value),
+      min = 0,
+      roundUpAuto(data$Value),
       label = NA,
       symbol = "cfs",
-      sectors = gaugeSectors(success = c(mifs_today$sry_limits$success_lo, roundUpAuto(data$Value)),
-                             warning = c(mifs_today$sry_limits$warning_lo, mifs_today$sry_limits$warning_hi),
-                             danger = c(0,mifs_today$sry_limits$danger_hi)
+      sectors = gaugeSectors(
+        success = c(mifs_today$sry_limits$success_lo, roundUpAuto(data$Value)),
+        warning = c(
+          mifs_today$sry_limits$warning_lo,
+          mifs_today$sry_limits$warning_hi
+        ),
+        danger = c(0, mifs_today$sry_limits$danger_hi)
       )
     )
   })
@@ -314,61 +353,84 @@ server <- function(input, output, session) {
       ) %>%
 
       ## Add gauge points for SFJ and SRY. ----
-    addCircleMarkers(group = "cdec-gages",
-                     lng = -123.0150,
-                     lat = 41.64069,
-                     radius = 7,
-                     color = "blue",
-                     fillOpacity = 1,
-                     label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
-                     labelOptions = labelOptions(noHide = TRUE,
-                                                 interactive = TRUE,
-                                                 direction = "bottom",
-                                                 textsize = "15px")
-    ) %>%
-      addCircleMarkers(group = "cdec-gages",
-                       lng = -122.5956,
-                       lat = 41.82292,
-                       radius = 7,
-                       color = "blue",
-                       fillOpacity = 1,
-                       label = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"),
-                       labelOptions = labelOptions(noHide = TRUE,
-                                                   interactive = TRUE,
-                                                   direction = "bottom",
-                                                   textsize = "15px")) %>%
+      addCircleMarkers(
+        group = "cdec-gages",
+        lng = -123.0150,
+        lat = 41.64069,
+        radius = 7,
+        color = "blue",
+        fillOpacity = 1,
+        label = HTML(
+          "<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"
+        ),
+        labelOptions = labelOptions(
+          noHide = TRUE,
+          interactive = TRUE,
+          direction = "bottom",
+          textsize = "15px"
+        )
+      ) %>%
+      addCircleMarkers(
+        group = "cdec-gages",
+        lng = -122.5956,
+        lat = 41.82292,
+        radius = 7,
+        color = "blue",
+        fillOpacity = 1,
+        label = HTML(
+          "<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"
+        ),
+        labelOptions = labelOptions(
+          noHide = TRUE,
+          interactive = TRUE,
+          direction = "bottom",
+          textsize = "15px"
+        )
+      ) %>%
 
       ## Add POD markers. ----
-    addCircleMarkers(
-      group = "PODs",
-      data = pods,
-      lng = ~lon,
-      lat = ~lat,
-      radius = 4,
-      color = ~color,
-      stroke = TRUE,
-      weight = 1,
-      fillOpacity = 0.6,
-      popup = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status)
-    ) %>%
+      addCircleMarkers(
+        group = "PODs",
+        data = pods,
+        lng = ~lon,
+        lat = ~lat,
+        radius = 4,
+        color = ~color,
+        stroke = TRUE,
+        weight = 1,
+        fillOpacity = 0.6,
+        popup = ~ paste(
+          "WR ID:",
+          wr_id,
+          "<br>Owner:",
+          owner,
+          "<br>Status:",
+          curtail_status
+        )
+      ) %>%
 
       ## Add stream lines. ----
-    addPolylines(
-      data = stream_lines,
-      group = "streams",
-      color = "blue",
-      weight = 2.0,
-      opacity = 1.0
-    ) %>%
+      addPolylines(
+        data = stream_lines,
+        group = "streams",
+        color = "blue",
+        weight = 2.0,
+        opacity = 1.0
+      ) %>%
 
       ## Add legend for curtailment status. ----
-    addLegend(
-      position = "bottomright",
-      colors = c("green", "yellow", "red"),
-      labels = c("Not Curtailed", "Conditionally Curtailed", "Curtailed"),
-      title = "Curtailment Status",
-      opacity = 1
-    )
+      addLegend(
+        position = "bottomright",
+        colors = c("green", "cyan", "yellow", "red"),
+        labels = c(
+          "Not Curtailed",
+          "Conditionally Suspended",
+          "Conditionally Curtailed",
+          "Curtailed"
+        ),
+        title = "Curtailment Status",
+        opacity = 1
+      )
   })
 
   # Observe for change in base map choice and update watershed boundary color.
@@ -390,12 +452,15 @@ server <- function(input, output, session) {
 
   # Render time gauge data was last retrieved. ----
   output$gaugeLastUpdated <- renderText({
-    paste("Gauge data last retrieved:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
+    paste(
+      "Gauge data last retrieved:",
+      format(last_update(), "%Y-%m-%d %H:%M:%S")
+    )
   })
 
   # Render time POD data was last updated.
   output$podLastUpdated <- renderText({
-    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d"))  # Customize as needed
+    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d")) # Customize as needed
   })
 
   # Render flow datatable.
@@ -404,8 +469,6 @@ server <- function(input, output, session) {
     data <- flow_data()
     datatable(data, rownames = FALSE)
   })
-
-
 }
 
 # 9. Run App. ----

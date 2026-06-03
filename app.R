@@ -57,7 +57,7 @@ pods <- pods %>%
   mutate(
     color = case_when(
       curtail_status == "Not Curtailed" ~ "green",
-      curtail_status == "Conditionally Suspended" ~ "cyan",
+      curtail_status == "Conditionally Suspended" ~ "chartreuse",
       curtail_status == "Conditionally Curtailed" ~ "yellow",
       curtail_status == "Curtailed" ~ "red",
       TRUE ~ "gray"
@@ -421,7 +421,7 @@ server <- function(input, output, session) {
       ## Add legend for curtailment status. ----
       addLegend(
         position = "bottomright",
-        colors = c("green", "cyan", "yellow", "red"),
+        colors = c("green", "chartreuse", "yellow", "red"),
         labels = c(
           "Not Curtailed",
           "Conditionally Suspended",

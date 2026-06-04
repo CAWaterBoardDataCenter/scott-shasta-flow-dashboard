@@ -39,28 +39,25 @@ sta_info <- read_csv("data/station-info.csv")
 load("data/mif-tables.RData")
 
 ## Load POD data. ----
-
-### Load data.
 obj <- get_object(
   object = "scott-shasta-monitoring-pods",
   bucket = Sys.getenv("AWS_BUCKET"),
   as = "raw"
 )
 
-### Convert raw object to R readable format.
 raw_conn <- rawConnection(obj)
 load(raw_conn)
 close(raw_conn)
 
-### Map POD plot color to Curtailment Status.
+### Map POD plot color to curtailment status.
 pods <- pods %>%
   mutate(
     color = case_when(
-      curtail_status == "Not Curtailed" ~ "green",
+      curtail_status == "Not Curtailed"           ~ "green",
       curtail_status == "Conditionally Suspended" ~ "chartreuse",
       curtail_status == "Conditionally Curtailed" ~ "yellow",
-      curtail_status == "Curtailed" ~ "red",
-      TRUE ~ "gray"
+      curtail_status == "Curtailed"               ~ "red",
+      TRUE                                        ~ "gray"
     )
   )
 
@@ -68,51 +65,135 @@ pods <- pods %>%
 watershedBoundaries <- sf::st_read(
   "./data/scott-shasta-huc8s/scott-shasta-huc8s.shp"
 ) %>%
-  sf::st_transform('+proj=longlat +datum=WGS84')
+  sf::st_transform("+proj=longlat +datum=WGS84")
 
-## load stream lines for the map. ----
+## Load stream lines for the map. ----
 stream_lines <- sf::st_read(
   "./data/scott-shasta-rivers/scott-shasta-rivers.shp"
 ) %>%
-  sf::st_transform('+proj=longlat +datum=WGS84')
-stream_lines <- st_zm(stream_lines)
+  sf::st_transform("+proj=longlat +datum=WGS84") %>%
+  st_zm()
 
-# 4. Define and load support functions. ----
+# 4. Define support functions. ----
 
-## Load functions to fetch flow values from CDEC. ----
-source("cdecFlowQuery.R")
+col_spec <- cols(
+  VALUE     = col_character(),
+  DATA_FLAG = col_character(),
+  UNITS     = col_character()
+)
 
-## Gauge max rounding function. ----
-roundUpAuto <- function(x) {
-  # # only positive integers ≥1
-  # if (any(x < 1 | x %% 1 != 0, na.rm = TRUE)) {
-  #   stop("`x` must be integer values ≥ 1")
-  # }
+cder_handle <- function() {
+  h <- new_handle()
+  handle_setopt(h, connecttimeout = getOption("cder.timeout"))
+  handle_setheaders(h, Accept = "application/json")
+  h
+}
 
-  vapply(
-    x,
-    FUN = function(xi) {
-      if (xi < 10) {
-        return(10)
-      }
-      e <- floor(log10(xi)) # highest exponent so 10^e ≤ xi
-      base <- 10^e
-      base * ceiling(xi / base)
-    },
-    FUN.VALUE = numeric(1)
+basic_query <- function(url, col_spec) {
+  cdec_tz <- "America/Los_Angeles"
+
+  result <- curl_fetch_memory(url, handle = cder_handle())
+  if (result$status_code != 200L) {
+    stop(
+      "CDEC query failed with status ", parse_headers(result$headers)[1], "\n",
+      parse(text = rawToChar(result$content)), "\n",
+      "URL request: ", result$url,
+      call. = FALSE
+    )
+  }
+
+  value <- rawToChar(result$content)
+  Encoding(value) <- "UTF-8"
+
+  result <- read_csv(
+    I(value),
+    locale   = locale(tz = cdec_tz),
+    na       = "---",
+    col_types = col_spec
   )
+
+  if (nrow(problems(result)) > 0L) {
+    problem_tf <- tempfile(fileext = ".csv")
+    problem_rows <- str_split(value, "\r\n", simplify = TRUE)[c(1, problems(result)$row)]
+    writeLines(problem_rows, problem_tf)
+    warning("Parsing problems detected. Output written to ", problem_tf, call. = FALSE)
+  }
+
+  result
+}
+
+cdecQuery <- function(station, sensor, duration, start_date, end_date) {
+  cdec_url       <- "https://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet"
+  valid_durations <- c("E", "H", "D", "W", "M", "Q", "Y")
+
+  if (missing(station)) {
+    stop("No station provided.", call. = FALSE)
+  } else {
+    station_comp <- glue("Stations={str_c(str_to_upper(station), collapse = '%2C')}")
+  }
+
+  sensor_comp <- if (missing(sensor)) {
+    ""
+  } else {
+    glue("&SensorNums={str_c(sensor, collapse = '%2C')}")
+  }
+
+  if (missing(duration)) {
+    duration_comp <- ""
+  } else {
+    duration <- str_to_upper(str_sub(duration, 1, 1))
+    if (!all(duration %in% valid_durations)) {
+      stop("Invalid duration codes detected: ", paste(setdiff(duration, valid_durations), collapse = ", "))
+    }
+    duration_comp <- glue("&dur_code={str_c(duration, collapse = '%2C')}")
+  }
+
+  start_comp <- if (missing(start_date)) "" else glue("&Start={as_date(start_date)}")
+  end_comp   <- if (missing(end_date))   "" else glue("&End={as_date(end_date)}")
+
+  url <- glue("{cdec_url}?{station_comp}{sensor_comp}{duration_comp}{start_comp}{end_comp}")
+
+  basic_query(url, col_spec) %>%
+    rename(
+      StationID    = "STATION_ID",
+      DateTime     = "DATE TIME",
+      SensorType   = "SENSOR_TYPE",
+      Value        = "VALUE",
+      DataFlag     = "DATA_FLAG",
+      SensorUnits  = "UNITS",
+      SensorNumber = "SENSOR_NUMBER",
+      Duration     = "DURATION",
+      ObsDate      = "OBS DATE"
+    )
+}
+
+cdecFlowQuery <- function(station, sensor, duration) {
+  x <- cdecQuery(station, sensor, duration, as.Date(now()) - 1, as.Date(now()) + 1)
+
+  if (nrow(x) == 0) stop("No data available for the specified station and sensor.")
+
+  x %>%
+    filter(!is.na(Value)) %>%
+    arrange(desc(DateTime)) %>%
+    slice(1)
+}
+
+roundUpAuto <- function(x) {
+  vapply(x, FUN.VALUE = numeric(1), FUN = function(xi) {
+    if (xi < 10) return(10)
+    e    <- floor(log10(xi))
+    base <- 10^e
+    base * ceiling(xi / base)
+  })
+}
+
+sameMonthDay <- function(date1, date2) {
+  d1 <- ymd(date1)
+  d2 <- ymd(date2)
+  identical(month(d1), month(d2)) && identical(day(d1), day(d2))
 }
 
 # 5. Pull today's minimum instream flow values. ----
-
-sameMonthDay <- function(date1, date2) {
-  # Convert the strings to date objects
-  d1 <- ymd(date1)
-  d2 <- ymd(date2)
-
-  # Compare month and day
-  identical(month(d1), month(d2)) && identical(day(d1), day(d2))
-}
 
 mifs_today <- map(
   mifs,
@@ -152,26 +233,17 @@ map_card <- card(
 
 ## About card. ----
 about_card <- card(
-  #  height = "10vh",
-  # fillable = TRUE,
-  # fill = TRUE,
   card_header("About The Dashboard"),
   card_body(
     div(
       class = "card-body",
       p(
         "This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is retrieved from the Dept. of Water Resources' ",
-        tags$a(
-          href = "https://cdec.water.ca.gov/",
-          "California Data Exchange Center (CDEC)",
-          target = "_blank"
-        ),
+        tags$a(href = "https://cdec.water.ca.gov/", "California Data Exchange Center (CDEC)", target = "_blank"),
         " at 15-minute intervals. The dashboard also includes a map showing the curtailment status of points of diversion (PODs) along the rivers."
       ),
       tags$ul(
-        tags$li(
-          "Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."
-        ),
+        tags$li("Click the Station links on the map to view CDEC's plots of recent flows. Click on the PODs to view their water right information."),
         tags$li(
           "Link to Scott River Curtailment Webpage: ",
           tags$a(
@@ -193,18 +265,15 @@ about_card <- card(
   )
 )
 
-#
-# 7. Define UI. --------
+# 7. Define UI. ----
 
 ui <- page_fillable(
   theme = bslib::bs_theme(preset = "litera"),
 
-  # Load CSS styles for the dashboard.
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
   ),
 
-  # Modified titlePanel with logo
   div(
     class = "title-container",
     img(src = "enf-logo.png", class = "logo"),
@@ -226,78 +295,59 @@ ui <- page_fillable(
   ),
   about_card,
 
-  # Last updated text.
   div(
     class = "last-updated-container",
-    div(class = "left-updated", textOutput("gaugeLastUpdated")),
+    div(class = "left-updated",   textOutput("gaugeLastUpdated")),
     div(class = "center-updated", textOutput("appEnvironment")),
-    div(class = "right-updated", textOutput("podLastUpdated"))
+    div(class = "right-updated",  textOutput("podLastUpdated"))
   )
 )
 
-# 8. Define Server. ----
+# 8. Define server. ----
+
 server <- function(input, output, session) {
-  # Reactive values to store data and update time
-  flow_data <- reactiveVal(NULL)
+
+  flow_data   <- reactiveVal(NULL)
   last_update <- reactiveVal(Sys.time())
 
-  # Function to update data
   update_data <- function() {
     new_data <- sta_info[, 1:3] %>%
-      pmap_dfr(., cdecFlowQuery) %>%
+      pmap_dfr(cdecFlowQuery) %>%
       mutate(
-        Date = as.Date(DateTime, tz = "America/Los_Angeles"),
-        Time = format(
-          as.POSIXct(DateTime, tz = "America/Los_Angeles"),
-          "%H:%M:%S"
-        )
-      ) %>%
-
-      mutate(Value = as.numeric(Value))
-
+        Date  = as.Date(DateTime, tz = "America/Los_Angeles"),
+        Time  = format(as.POSIXct(DateTime, tz = "America/Los_Angeles"), "%H:%M:%S"),
+        Value = as.numeric(Value)
+      )
     flow_data(new_data)
     last_update(Sys.time())
   }
 
-  # Refresh data every 15 minutes safely
   observe({
     invalidateLater(15 * 60 * 1000, session)
     update_data()
   })
 
-  #
-  #
   # Render SFJ gauge. ----
   output$gauge_sfj <- renderGauge({
     req(flow_data())
-    data <- flow_data()
-    data <- data %>%
-      filter(StationID == "SFJ")
-
+    data <- flow_data() %>% filter(StationID == "SFJ")
     gauge(
-      value = data$Value,
-      min = 0,
-      max = roundUpAuto(data$Value),
-      label = NA,
-      symbol = "cfs",
+      value   = data$Value,
+      min     = 0,
+      max     = roundUpAuto(data$Value),
+      label   = NA,
+      symbol  = "cfs",
       sectors = gaugeSectors(
         success = c(mifs_today$sfj_limits$success_lo, roundUpAuto(data$Value)),
-        warning = c(
-          mifs_today$sfj_limits$warning_lo,
-          mifs_today$sfj_limits$warning_hi
-        ),
-        danger = c(0, mifs_today$sfj_limits$danger_hi)
+        warning = c(mifs_today$sfj_limits$warning_lo, mifs_today$sfj_limits$warning_hi),
+        danger  = c(0, mifs_today$sfj_limits$danger_hi)
       )
     )
   })
 
-  # render last recorded date.
   output$sfj_recorded <- renderText({
     req(flow_data())
-    data <- flow_data()
-    data <- data %>%
-      filter(StationID == "SFJ")
-    paste("Recorded:", data$DateTime)
+    paste("Recorded:", flow_data() %>% filter(StationID == "SFJ") %>% pull(DateTime))
   })
 
   output$sfj_mif <- renderText({
@@ -307,177 +357,116 @@ server <- function(input, output, session) {
   # Render SRY gauge. ----
   output$gauge_sry <- renderGauge({
     req(flow_data())
-    data <- flow_data()
-    data <- data %>%
-      filter(StationID == "SRY")
-
+    data <- flow_data() %>% filter(StationID == "SRY")
     gauge(
-      value = data$Value,
-      min = 0,
-      roundUpAuto(data$Value),
-      label = NA,
-      symbol = "cfs",
+      value   = data$Value,
+      min     = 0,
+      max     = roundUpAuto(data$Value),
+      label   = NA,
+      symbol  = "cfs",
       sectors = gaugeSectors(
         success = c(mifs_today$sry_limits$success_lo, roundUpAuto(data$Value)),
-        warning = c(
-          mifs_today$sry_limits$warning_lo,
-          mifs_today$sry_limits$warning_hi
-        ),
-        danger = c(0, mifs_today$sry_limits$danger_hi)
+        warning = c(mifs_today$sry_limits$warning_lo, mifs_today$sry_limits$warning_hi),
+        danger  = c(0, mifs_today$sry_limits$danger_hi)
       )
     )
   })
 
-  # render last recorded date.
   output$sry_recorded <- renderText({
     req(flow_data())
-    data <- flow_data()
-    data <- data %>%
-      filter(StationID == "SRY")
-    paste("Recorded:", data$DateTime)
+    paste("Recorded:", flow_data() %>% filter(StationID == "SRY") %>% pull(DateTime))
   })
 
   output$sry_mif <- renderText({
     paste("Minimum Instream Flow:", mifs_today$sry_limits$mif, "cfs")
   })
 
-  #
   # Render leaflet map. ----
   output$map <- renderLeaflet({
     leaflet() %>%
       addProviderTiles(providers$Esri.WorldStreetMap, group = "Street") %>%
-      addProviderTiles(providers$Esri.WorldTopoMap, group = "Topographic") %>%
-      addProviderTiles(providers$Esri.WorldImagery, group = "Aerial") %>%
+      addProviderTiles(providers$Esri.WorldTopoMap,   group = "Topographic") %>%
+      addProviderTiles(providers$Esri.WorldImagery,   group = "Aerial") %>%
       addLayersControl(
         baseGroups = c("Street", "Topographic", "Aerial"),
-        options = layersControlOptions(collapsed = FALSE)
+        options    = layersControlOptions(collapsed = FALSE)
       ) %>%
-
-      ## Add gauge points for SFJ and SRY. ----
       addCircleMarkers(
-        group = "cdec-gages",
-        lng = -123.0150,
-        lat = 41.64069,
-        radius = 7,
-        color = "blue",
+        group       = "cdec-gages",
+        lng         = -123.0150,
+        lat         = 41.64069,
+        radius      = 7,
+        color       = "blue",
         fillOpacity = 1,
-        label = HTML(
-          "<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"
-        ),
-        labelOptions = labelOptions(
-          noHide = TRUE,
-          interactive = TRUE,
-          direction = "bottom",
-          textsize = "15px"
-        )
+        label       = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9263&end=&geom=small&interval=2' target='_blank'>SFJ</a>"),
+        labelOptions = labelOptions(noHide = TRUE, interactive = TRUE, direction = "bottom", textsize = "15px")
       ) %>%
       addCircleMarkers(
-        group = "cdec-gages",
-        lng = -122.5956,
-        lat = 41.82292,
-        radius = 7,
-        color = "blue",
+        group       = "cdec-gages",
+        lng         = -122.5956,
+        lat         = 41.82292,
+        radius      = 7,
+        color       = "blue",
         fillOpacity = 1,
-        label = HTML(
-          "<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"
-        ),
-        labelOptions = labelOptions(
-          noHide = TRUE,
-          interactive = TRUE,
-          direction = "bottom",
-          textsize = "15px"
-        )
+        label       = HTML("<a href='https://cdec.water.ca.gov/cdecplotter/JspPlotServlet?sensor_no=9254&end=&geom=small&interval=2' target='_blank'>SRY</a>"),
+        labelOptions = labelOptions(noHide = TRUE, interactive = TRUE, direction = "bottom", textsize = "15px")
       ) %>%
-
-      ## Add POD markers. ----
       addCircleMarkers(
-        group = "PODs",
-        data = pods,
-        lng = ~lon,
-        lat = ~lat,
-        radius = 4,
-        color = ~color,
-        stroke = TRUE,
-        weight = 1,
+        group       = "PODs",
+        data        = pods,
+        lng         = ~lon,
+        lat         = ~lat,
+        radius      = 4,
+        color       = ~color,
+        stroke      = TRUE,
+        weight      = 1,
         fillOpacity = 0.6,
-        popup = ~ paste(
-          "WR ID:",
-          wr_id,
-          "<br>Owner:",
-          owner,
-          "<br>Status:",
-          curtail_status
-        )
+        popup       = ~paste("WR ID:", wr_id, "<br>Owner:", owner, "<br>Status:", curtail_status)
       ) %>%
-
-      ## Add stream lines. ----
       addPolylines(
-        data = stream_lines,
-        group = "streams",
-        color = "blue",
-        weight = 2.0,
+        data    = stream_lines,
+        group   = "streams",
+        color   = "blue",
+        weight  = 2.0,
         opacity = 1.0
       ) %>%
-
-      ## Add legend for curtailment status. ----
       addLegend(
         position = "bottomright",
-        colors = c("green", "chartreuse", "yellow", "red"),
-        labels = c(
-          "Not Curtailed",
-          "Conditionally Suspended",
-          "Conditionally Curtailed",
-          "Curtailed"
-        ),
-        title = "Curtailment Status",
-        opacity = 1
+        colors   = c("green", "chartreuse", "yellow", "red"),
+        labels   = c("Not Curtailed", "Conditionally Suspended", "Conditionally Curtailed", "Curtailed"),
+        title    = "Curtailment Status",
+        opacity  = 1
       )
   })
 
-  # Observe for change in base map choice and update watershed boundary color.
+  # Update watershed boundary color when base map changes. ----
   observe({
     req(input$map_groups)
-
     color <- if ("Aerial" %in% input$map_groups) "white" else "black"
-
     leafletProxy("map") %>%
       clearGroup("watershedGroup") %>%
-      addPolygons(
-        data = watershedBoundaries,
-        color = color,
-        weight = 2,
-        fill = FALSE,
-        group = "watershedGroup"
-      )
+      addPolygons(data = watershedBoundaries, color = color, weight = 2, fill = FALSE, group = "watershedGroup")
   })
 
-  # Render application environment. ----
+  # Render footer outputs. ----
   output$appEnvironment <- renderText({
-    env <- Sys.getenv("R_CONFIG_ACTIVE")
-    label <- if (env == "production") "Production" else "Development"
+    label <- if (Sys.getenv("R_CONFIG_ACTIVE") == "production") "Production" else "Development"
     paste("Environment:", label)
   })
 
-  # Render time gauge data was last retrieved. ----
   output$gaugeLastUpdated <- renderText({
-    paste(
-      "Gauge data last retrieved:",
-      format(last_update(), "%Y-%m-%d %H:%M:%S")
-    )
+    paste("Gauge data last retrieved:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
   })
 
-  # Render time POD data was last updated.
   output$podLastUpdated <- renderText({
-    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d")) # Customize as needed
+    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d"))
   })
 
-  # Render flow datatable.
   output$flow_table <- renderDT({
     req(flow_data())
-    data <- flow_data()
-    datatable(data, rownames = FALSE)
+    datatable(flow_data(), rownames = FALSE)
   })
 }
 
-# 9. Run App. ----
+# 9. Run app. ----
 shinyApp(ui, server)

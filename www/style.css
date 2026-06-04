@@ -112,6 +112,11 @@ p {
   flex: 1;
 }
 
+.center-updated {
+  text-align: center;
+  flex: 1;
+}
+
 .right-updated {
   text-align: right;
   flex: 1;

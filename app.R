@@ -17,7 +17,7 @@ library(DT)
 library(sf)
 
 # 2. Set application state for AWS (development or production). ----
-Sys.setenv(R_CONFIG_ACTIVE = "default")
+Sys.setenv(R_CONFIG_ACTIVE = yaml::read_yaml("config.yml")$active_env)
 
 ## Read AWS config data from config.yml.
 config_data <- config::get()
@@ -230,6 +230,7 @@ ui <- page_fillable(
   div(
     class = "last-updated-container",
     div(class = "left-updated", textOutput("gaugeLastUpdated")),
+    div(class = "center-updated", textOutput("appEnvironment")),
     div(class = "right-updated", textOutput("podLastUpdated"))
   )
 )
@@ -448,6 +449,13 @@ server <- function(input, output, session) {
         fill = FALSE,
         group = "watershedGroup"
       )
+  })
+
+  # Render application environment. ----
+  output$appEnvironment <- renderText({
+    env <- Sys.getenv("R_CONFIG_ACTIVE")
+    label <- if (env == "production") "Production" else "Development"
+    paste("Environment:", label)
   })
 
   # Render time gauge data was last retrieved. ----

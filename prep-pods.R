@@ -6,8 +6,8 @@ library(aws.s3)
 
 save_s3 <- TRUE
 
-# Set application state (development or production). ----
-Sys.setenv(R_CONFIG_ACTIVE = "development")
+# Set application state for AWS (development or production). ----
+Sys.setenv(R_CONFIG_ACTIVE = yaml::read_yaml("config.yml")$active_env)
 
 # Load AWS S3 credentials.
 config_data <- config::get()

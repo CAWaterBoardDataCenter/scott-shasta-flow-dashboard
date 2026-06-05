@@ -48,7 +48,7 @@ Real-time flow values are then fetched from CDEC every 15 minutes during the ses
 ### `prep-pods.R`
 Run this whenever POD curtailment data needs updating. Reads Excel files from `aws-data/`, combines Scott and Shasta POD data, saves to `pods.RData`, and uploads to S3.
 
-- `R_CONFIG_ACTIVE` is hardcoded to `"development"` inside `prep-pods.R` — change it there to target a different bucket.
+- Like `app.R`, `prep-pods.R` reads the active environment from `active_env` in `config.yml` — change it there to target a different bucket.
 - The `status` field in `config.yml` controls which PBI files are loaded: `"curtailed"` picks the most recent dated file matching `ScottPBI-YYYYMMDD.xlsx`; `"default"` uses `ScottPBI-default.xlsx`.
 - Set `save_s3 <- FALSE` at the top to skip the S3 upload.
 

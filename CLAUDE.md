@@ -52,9 +52,6 @@ Run this whenever POD curtailment data needs updating. Reads Excel files from `a
 - The `status` field in `config.yml` controls which PBI files are loaded: `"curtailed"` picks the most recent dated file matching `ScottPBI-YYYYMMDD.xlsx`; `"default"` uses `ScottPBI-default.xlsx`.
 - Set `save_s3 <- FALSE` at the top to skip the S3 upload.
 
-### `prep-mif-tables.R`
-Run infrequently when MIF thresholds change. Reads `mifs-sfj.csv` and `mifs-sry.csv` (not in repo — obtain from source), produces `data/mif-tables.RData`.
-
 ## Architecture
 
 ### `app.R` Structure

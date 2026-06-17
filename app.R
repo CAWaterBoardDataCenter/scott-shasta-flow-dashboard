@@ -411,14 +411,19 @@ server <- function(input, output, session) {
   output$gauge_sfj <- renderGauge({
     req(flow_data())
     data <- flow_data() %>% filter(StationID == "SFJ")
+    # Clamp the gauge max to at least success_lo. Otherwise, when the flow is
+    # below success_lo the gauge max drops below it and flexdashboard's sector
+    # sorting (lo=min, hi=max) makes the success range swallow the low value,
+    # coloring it green instead of red. (justgage returns the first match.)
+    gauge_max <- max(roundUpAuto(data$Value), mifs_today$sfj_limits$success_lo)
     gauge(
       value = data$Value,
       min = 0,
-      max = roundUpAuto(data$Value),
+      max = gauge_max,
       label = NA,
       symbol = "cfs",
       sectors = gaugeSectors(
-        success = c(mifs_today$sfj_limits$success_lo, roundUpAuto(data$Value)),
+        success = c(mifs_today$sfj_limits$success_lo, gauge_max),
         warning = c(
           mifs_today$sfj_limits$warning_lo,
           mifs_today$sfj_limits$warning_hi
@@ -444,14 +449,19 @@ server <- function(input, output, session) {
   output$gauge_sry <- renderGauge({
     req(flow_data())
     data <- flow_data() %>% filter(StationID == "SRY")
+    # Clamp the gauge max to at least success_lo. Otherwise, when the flow is
+    # below success_lo the gauge max drops below it and flexdashboard's sector
+    # sorting (lo=min, hi=max) makes the success range swallow the low value,
+    # coloring it green instead of red. (justgage returns the first match.)
+    gauge_max <- max(roundUpAuto(data$Value), mifs_today$sry_limits$success_lo)
     gauge(
       value = data$Value,
       min = 0,
-      max = roundUpAuto(data$Value),
+      max = gauge_max,
       label = NA,
       symbol = "cfs",
       sectors = gaugeSectors(
-        success = c(mifs_today$sry_limits$success_lo, roundUpAuto(data$Value)),
+        success = c(mifs_today$sry_limits$success_lo, gauge_max),
         warning = c(
           mifs_today$sry_limits$warning_lo,
           mifs_today$sry_limits$warning_hi

@@ -58,13 +58,19 @@ Run this whenever POD curtailment data needs updating. Reads Excel files from `a
 The entire app lives in a single file organized in numbered sections:
 1. Library loading
 2. AWS environment setup — reads `active_env` from `config.yml` via `yaml::read_yaml()`, sets `R_CONFIG_ACTIVE`, then calls `config::get()`
-3. Data loading (station CSV, MIF RData, PODs from S3, shapefiles)
+3. Data loading (station CSV, MIF RData, PODs from S3 via `loadPods()`, shapefiles)
 4. Support functions (all inline — see below)
 5. Today's MIF lookup (filters `mifs` list by current month/day)
 6. UI card definitions
 7. `ui` using `bslib::page_fillable()` with `bs_theme(preset = "litera")`
-8. `server` with reactive flow data, gauge renders, Leaflet map, and 15-min auto-refresh
+8. `server` with reactive flow data, gauge renders, Leaflet map, 15-min auto-refresh, and a manual POD refresh button
 9. `shinyApp(ui, server)`
+
+### POD Data Loading & Refresh
+- `loadPods()` (Section 3) fetches the `scott-shasta-monitoring-pods` object from S3, applies the curtailment color mapping, and returns a list of `pods` (data frame) and `prep_date`. It runs once at startup to seed the initial `pods`/`prep_date` globals.
+- The server holds `pod_data` and `pod_prep_date` reactive values seeded from that startup load. The **"Refresh POD Data"** button (at the top of the About card body, `input$refresh_pods`) re-runs `loadPods()` and updates these reactives — so S3 changes are picked up **without restarting the app** (previously the only option). Errors are caught and shown via `showNotification()`.
+- POD markers are redrawn via `leafletProxy()` (an `observeEvent(pod_data(), ignoreInit = TRUE)`), which preserves the current map view/zoom instead of fully re-rendering the map. The footer "last updated" date reads `pod_prep_date()`.
+- This button refreshes **POD/curtailment data only**; CDEC gauge flow values are on the separate 15-min timer.
 
 ### CDEC Query Functions (Section 4 of `app.R`)
 - `cdecFlowQuery()` — top-level wrapper; fetches yesterday→tomorrow and returns the latest non-NA row for a station

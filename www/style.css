@@ -69,6 +69,11 @@ p {
   overflow: visible !important;
 }
 
+/* Refresh POD Data button (in About card) */
+#refresh_pods {
+  margin-bottom: 10px;
+}
+
 /* Leaflet Map Styling */
 .leaflet-container {
   border-radius: 10px;

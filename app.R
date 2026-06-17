@@ -39,27 +39,39 @@ sta_info <- read_csv("data/station-info.csv")
 load("data/mif-tables.RData")
 
 ## Load POD data. ----
-obj <- get_object(
-  object = "scott-shasta-monitoring-pods",
-  bucket = Sys.getenv("AWS_BUCKET"),
-  as = "raw"
-)
-
-raw_conn <- rawConnection(obj)
-load(raw_conn)
-close(raw_conn)
-
-### Map POD plot color to curtailment status.
-pods <- pods %>%
-  mutate(
-    color = case_when(
-      curtail_status == "Not Curtailed" ~ "green",
-      curtail_status == "Conditionally Suspended" ~ "chartreuse",
-      curtail_status == "Conditionally Curtailed" ~ "yellow",
-      curtail_status == "Curtailed" ~ "red",
-      TRUE ~ "gray"
-    )
+## Fetches the POD object from S3 and returns the POD data frame (with plot
+## colors mapped) along with its prep date. Defined as a function so the app
+## can re-fetch fresh data via the refresh button without restarting.
+loadPods <- function() {
+  obj <- get_object(
+    object = "scott-shasta-monitoring-pods",
+    bucket = Sys.getenv("AWS_BUCKET"),
+    as = "raw"
   )
+
+  raw_conn <- rawConnection(obj)
+  load(raw_conn) # loads `pods` and `prep_date`
+  close(raw_conn)
+
+  ### Map POD plot color to curtailment status.
+  pods <- pods %>%
+    mutate(
+      color = case_when(
+        curtail_status == "Not Curtailed" ~ "green",
+        curtail_status == "Conditionally Suspended" ~ "chartreuse",
+        curtail_status == "Conditionally Curtailed" ~ "yellow",
+        curtail_status == "Curtailed" ~ "red",
+        TRUE ~ "gray"
+      )
+    )
+
+  list(pods = pods, prep_date = prep_date)
+}
+
+### Initial POD load at startup.
+initial_pods <- loadPods()
+pods <- initial_pods$pods
+prep_date <- initial_pods$prep_date
 
 ## Load watershed boundaries for the map. ----
 watershedBoundaries <- sf::st_read(
@@ -269,6 +281,12 @@ about_card <- card(
   card_body(
     div(
       class = "card-body",
+      actionButton(
+        "refresh_pods",
+        "Refresh POD Data",
+        icon = icon("rotate"),
+        class = "btn-primary btn-sm"
+      ),
       p(
         "This application serves as a centralized dashboard for monitoring stream flow in the Shasta and Scott Rivers. Flow data is retrieved from the Dept. of Water Resources' ",
         tags$a(
@@ -346,6 +364,28 @@ ui <- page_fillable(
 server <- function(input, output, session) {
   flow_data <- reactiveVal(NULL)
   last_update <- reactiveVal(Sys.time())
+
+  # POD data reactives (refreshable from AWS via the refresh button). ----
+  pod_data <- reactiveVal(pods)
+  pod_prep_date <- reactiveVal(prep_date)
+
+  observeEvent(input$refresh_pods, {
+    tryCatch(
+      {
+        refreshed <- loadPods()
+        pod_data(refreshed$pods)
+        pod_prep_date(refreshed$prep_date)
+        showNotification("POD data refreshed from AWS.", type = "message")
+      },
+      error = function(e) {
+        showNotification(
+          paste("Failed to refresh POD data:", conditionMessage(e)),
+          type = "error",
+          duration = NULL
+        )
+      }
+    )
+  })
 
   update_data <- function() {
     new_data <- sta_info[, 1:3] %>%
@@ -479,7 +519,7 @@ server <- function(input, output, session) {
       ) %>%
       addCircleMarkers(
         group = "PODs",
-        data = pods,
+        data = isolate(pod_data()),
         lng = ~lon,
         lat = ~lat,
         radius = 4,
@@ -532,6 +572,31 @@ server <- function(input, output, session) {
       )
   })
 
+  # Redraw POD markers when the data is refreshed (without resetting the map). ----
+  observeEvent(pod_data(), ignoreInit = TRUE, {
+    leafletProxy("map") %>%
+      clearGroup("PODs") %>%
+      addCircleMarkers(
+        group = "PODs",
+        data = pod_data(),
+        lng = ~lon,
+        lat = ~lat,
+        radius = 4,
+        color = ~color,
+        stroke = TRUE,
+        weight = 1,
+        fillOpacity = 0.6,
+        popup = ~ paste(
+          "WR ID:",
+          wr_id,
+          "<br>Owner:",
+          owner,
+          "<br>Status:",
+          curtail_status
+        )
+      )
+  })
+
   # Render footer outputs. ----
   output$appEnvironment <- renderText({
     label <- if (Sys.getenv("R_CONFIG_ACTIVE") == "production") {
@@ -550,7 +615,10 @@ server <- function(input, output, session) {
   })
 
   output$podLastUpdated <- renderText({
-    paste("POD curtailment data last updated:", format(prep_date, "%Y-%m-%d"))
+    paste(
+      "POD curtailment data last updated:",
+      format(pod_prep_date(), "%Y-%m-%d")
+    )
   })
 
   output$flow_table <- renderDT({
